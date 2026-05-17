@@ -1,0 +1,61 @@
+{
+  "name": "GlobiGuard insurance claims governed action template",
+  "nodes": [
+    {
+      "name": "Incoming Claim",
+      "type": "n8n-nodes-base.manualTrigger",
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "name": "GlobiGuard Checkpoint",
+      "type": "n8n-nodes-globiguard.globiGuard",
+      "position": [260, 0],
+      "parameters": {
+        "operation": "governAction",
+        "actionType": "email.send",
+        "destinationType": "email",
+        "destinationName": "claims-customer-email",
+        "dataClasses": ["PII"],
+        "purpose": "Send claim status update",
+        "idempotencyKey": "={{ $json.claimId + ':email-status' }}",
+        "enforcementMode": "stop_until_allowed"
+      }
+    },
+    {
+      "name": "Wait for Approval",
+      "type": "n8n-nodes-globiguard.globiGuard",
+      "position": [520, 120],
+      "parameters": {
+        "operation": "waitForApproval",
+        "queueEntryId": "={{ $json.globiguard.queueEntryId }}",
+        "maxAttempts": 60,
+        "intervalMs": 1000
+      }
+    },
+    {
+      "name": "Export Evidence Package",
+      "type": "n8n-nodes-globiguard.globiGuard",
+      "position": [780, 0],
+      "parameters": {
+        "operation": "exportEvidencePackage",
+        "workflowRunId": "={{ $json.claimId }}",
+        "frameworkId": "soc2"
+      }
+    }
+  ],
+  "connections": {
+    "Incoming Claim": {
+      "main": [
+        [
+          {
+            "node": "GlobiGuard Checkpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "notes": "Sample/template only. Configure your own email/CRM nodes and credentials. BLOCK and unresolved QUEUE must not flow to the downstream business action."
+}

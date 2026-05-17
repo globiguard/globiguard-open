@@ -1,0 +1,54 @@
+{
+  "name": "@globiguard/sdk",
+  "version": "1.0.1",
+  "description": "Server-first TypeScript SDK for GlobiGuard control-plane and trusted decision-engine connectivity.",
+  "author": "GuideGDM",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./entitlements-node": {
+      "types": "./dist/entitlements.node.d.ts",
+      "import": "./dist/entitlements.node.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/globiguard/globiguard-open.git",
+    "directory": "packages/sdk"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@globiguard/contracts": "workspace:*",
+    "socket.io-client": "^4.8.3"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  },
+  "scripts": {
+    "build:deps": "pnpm --dir ../contracts build",
+    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "pretest": "pnpm run build:deps",
+    "test": "vitest run",
+    "prepack": "pnpm run build",
+    "prepublishOnly": "pnpm run build"
+  }
+}

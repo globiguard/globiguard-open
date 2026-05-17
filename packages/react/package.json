@@ -1,0 +1,51 @@
+{
+  "name": "@globiguard/react",
+  "version": "1.0.1",
+  "description": "React bindings for GlobiGuard's browser-safe distribution layer.",
+  "author": "GuideGDM",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/globiguard/globiguard-open.git",
+    "directory": "packages/react"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@globiguard/contracts": "workspace:*",
+    "@globiguard/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^18.3.0 || ^19.0.0",
+    "react-dom": "^18.3.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "vitest": "^2.1.8"
+  },
+  "scripts": {
+    "build:deps": "pnpm --dir ../contracts build && pnpm --dir ../sdk build",
+    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm run build:deps",
+    "test": "vitest run --passWithNoTests",
+    "prepack": "pnpm run build",
+    "prepublishOnly": "pnpm run build"
+  }
+}

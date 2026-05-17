@@ -1,0 +1,35 @@
+{
+  "name": "@globiguard/contracts",
+  "version": "1.0.1",
+  "description": "Shared public contracts for GlobiGuard distribution-layer packages.",
+  "author": "GuideGDM",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/globiguard/globiguard-open.git",
+    "directory": "packages/contracts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "prepack": "pnpm build",
+    "prepublishOnly": "pnpm build"
+  }
+}
+

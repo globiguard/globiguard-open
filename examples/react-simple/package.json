@@ -1,0 +1,26 @@
+{
+  "name": "@globiguard/example-react-simple",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "pnpm --dir ../.. build:react-example-deps",
+    "dev": "vite",
+    "prebuild": "pnpm --dir ../.. build:react-example-deps",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@globiguard/react": "workspace:*",
+    "@globiguard/sdk": "workspace:*",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.8.3",
+    "vite": "^5.4.21"
+  }
+}
+
