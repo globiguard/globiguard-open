@@ -246,5 +246,8 @@ describe("n8n runtime bootstrap", () => {
     expect(requestHeaders.get("x-globiguard-client")).toBe(
       "n8n-nodes-globiguard"
     );
+    expect(requestHeaders.get("x-globiguard-project-id")).toBe("proj_123");
+    expect(requestHeaders.get("x-globiguard-secret-key")).toBe("sk_test_123");
+    expect(requestHeaders.get("x-globiguard-environment")).toBe("sandbox");
   });
 });

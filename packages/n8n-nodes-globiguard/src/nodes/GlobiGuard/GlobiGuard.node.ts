@@ -103,7 +103,7 @@ export class GlobiGuard implements INodeType {
         displayName: "Package Version",
         name: "packageVersion",
         type: "string",
-        default: "0.1.0",
+        default: "1.0.2",
         displayOptions: {
           show: {
             operation: ["registerInstall"]
@@ -504,7 +504,7 @@ async function executeRegisterInstall(
   const packageVersion = this.getNodeParameter(
     "packageVersion",
     0,
-    "0.1.0"
+    "1.0.2"
   ) as string;
   const sendHeartbeat = this.getNodeParameter(
     "sendHeartbeat",

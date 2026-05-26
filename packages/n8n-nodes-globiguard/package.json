@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-globiguard",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "GlobiGuard n8n community node with install registration and governed-action checkpoints.",
   "keywords": [
     "n8n-community-node-package"
@@ -41,8 +41,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@globiguard/contracts": "workspace:*",
-    "@globiguard/sdk": "workspace:*"
+    "@globiguard/contracts": "^1.0.1",
+    "@globiguard/sdk": "^1.0.1"
   },
   "devDependencies": {
     "n8n-workflow": "^1.95.3"
@@ -52,7 +52,8 @@
   },
   "scripts": {
     "build:deps": "pnpm --dir ../contracts build && pnpm --dir ../sdk build",
-    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && pnpm run build:deps && tsc -p tsconfig.json",
     "postbuild": "node ./scripts/copy-n8n-artifacts.cjs",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit",
     "pretest": "pnpm run build",

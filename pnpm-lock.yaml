@@ -69,10 +69,10 @@ importers:
   packages/n8n-nodes-globiguard:
     dependencies:
       '@globiguard/contracts':
-        specifier: workspace:*
+        specifier: ^1.0.1
         version: link:../contracts
       '@globiguard/sdk':
-        specifier: workspace:*
+        specifier: ^1.0.1
         version: link:../sdk
     devDependencies:
       n8n-workflow:
