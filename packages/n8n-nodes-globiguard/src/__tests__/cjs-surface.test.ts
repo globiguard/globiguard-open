@@ -26,6 +26,7 @@ describe("n8n cjs surface", () => {
 
     expect(new GlobiGuardApi().name).toBe("globiGuardApi");
     expect(new GlobiGuard().description.name).toBe("globiGuard");
+    expect(new GlobiGuard().description.icon).toBe("file:globiguard.svg");
   });
 
   it("keeps the package root import loadable in plain Node", async () => {
@@ -49,6 +50,9 @@ describe("n8n cjs surface", () => {
         return {
           ok: true,
           status: 200,
+          headers: new Headers({
+            "content-type": "application/json"
+          }),
           async json() {
             return { heartbeatId: "hb_123" };
           }
@@ -58,6 +62,9 @@ describe("n8n cjs surface", () => {
       return {
         ok: true,
         status: 200,
+        headers: new Headers({
+          "content-type": "application/json"
+        }),
         async json() {
           return { installId: "ins_123" };
         }
@@ -119,6 +126,9 @@ describe("n8n cjs surface", () => {
     const fetchMock = vi.fn(async (_input: URL | string, _init?: RequestInit) => ({
       ok: true,
       status: 200,
+      headers: new Headers({
+        "content-type": "application/json"
+      }),
       async json() {
         return { installId: "ins_456" };
       }
@@ -181,6 +191,9 @@ describe("n8n cjs surface", () => {
         return {
           ok: true,
           status: 200,
+          headers: new Headers({
+            "content-type": "application/json"
+          }),
           async json() {
             return { heartbeatId: "hb_123" };
           }
@@ -190,6 +203,9 @@ describe("n8n cjs surface", () => {
       return {
         ok: true,
         status: 200,
+        headers: new Headers({
+          "content-type": "application/json"
+        }),
         async json() {
           return { installId: "ins_123" };
         }
@@ -394,7 +410,7 @@ describe("n8n cjs surface", () => {
     };
 
     await expect(node.execute.call(context)).rejects.toThrowError(
-      /Project ID is required for secret n8n credentials/
+      /Secret credentials require non-empty projectId and token values/
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -412,6 +428,9 @@ describe("n8n cjs surface", () => {
       return {
         ok: true,
         status: 200,
+        headers: new Headers({
+          "content-type": "application/json"
+        }),
         async json() {
           return {
             contractVersion: "2026-04-action-beta",
@@ -469,7 +488,7 @@ describe("n8n cjs surface", () => {
     const result = await node.execute.call(context);
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(result[0][0]?.json).toMatchObject({
+    expect(result[1][0]?.json).toMatchObject({
       text: "hello",
       globiguard: {
         authorizationId: "auth_cjs",

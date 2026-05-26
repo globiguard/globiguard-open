@@ -11,8 +11,9 @@ governed-action checkpoints.
   **Verify GlobiGuard Webhook** operations
 - Runtime, install-identity, and credential rules aligned with the
   shared SDK/bootstrap contract
-- n8n manifest wiring and source-authored CJS runtime artifacts copied into
-  `dist/` on build
+- n8n manifest wiring with generated bundled CJS runtime artifacts in `dist/`
+- Custom GlobiGuard SVG node icon
+- Importable starter workflow templates under `examples/n8n/`
 - Node.js `>=22`
 
 ## Runtime contract
@@ -75,6 +76,20 @@ The node has separate branch outputs for allow, modified, blocked, queued, and
 error visibility. Do not wire blocked or unresolved queued branches to the same
 business-action node unless you are intentionally testing an unsafe override.
 
+## One-click starter workflow
+
+Install the community node in n8n with package name `n8n-nodes-globiguard`, then
+import the starter workflow from the GitHub raw URL:
+
+```text
+https://raw.githubusercontent.com/globiguard/globiguard-open/main/examples/n8n/globiguard-governed-email-starter.json
+```
+
+In n8n, use **Import from URL** or download the JSON and use **Import from
+File**. The template wires a Manual Trigger into a GlobiGuard Governance
+Checkpoint, routes ALLOW decisions to a downstream action placeholder, routes
+QUEUE decisions to Wait for Approval, and keeps BLOCK decisions isolated.
+
 ## Approval, evidence, replay, and webhooks
 
 - **Wait for Approval** polls the queue entry and fails closed on rejected,
@@ -87,7 +102,7 @@ business-action node unless you are intentionally testing an unsafe override.
   type, replay window, and the credential-scoped webhook signing secret before a
   workflow consumes approval/evidence events.
 
-The sample insurance workflow template lives under `examples/n8n/`.
+Sample workflow templates live under `examples/n8n/`.
 
 Compatibility: action checkpoint payloads use contract version
 `2026-04-action-beta` and require a compatible GlobiGuard control plane or

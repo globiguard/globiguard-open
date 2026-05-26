@@ -1,0 +1,137 @@
+{
+  "name": "GlobiGuard governed email starter",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "b71a5a29-6402-4a8f-8d1f-c6e4a2f0d101",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { customerEmail: 'customer@example.com', customerId: 'cus_demo_123', messageType: 'renewal_notice', bodyPreview: 'Your renewal notice is ready.', claimId: 'claim_demo_001' } }];"
+      },
+      "id": "8f98fd84-55e4-4682-8df6-f74552420b72",
+      "name": "Example Business Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "operation": "governAction",
+        "actionType": "email.send",
+        "destinationType": "email",
+        "destinationName": "customer-notification-email",
+        "dataClasses": ["PII"],
+        "purpose": "Send an approved customer notification",
+        "idempotencyKey": "={{ $json.customerId + ':' + $json.messageType }}",
+        "enforcementMode": "annotate"
+      },
+      "id": "72fdf2e0-25da-4715-a368-ed0cc8931657",
+      "name": "GlobiGuard Checkpoint",
+      "type": "n8n-nodes-globiguard.globiGuard",
+      "typeVersion": 1,
+      "position": [520, 0],
+      "notes": "Set Enforcement Mode to Stop Until Allowed when you connect a real downstream email/CRM/Slack action. Annotate Only keeps this starter easy to test."
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item) => ({ json: { ...item.json, nextStep: 'Connect your real Email/CRM/Slack action here only from the allow output.', globiguardDecision: item.json.globiguard?.decision } }));"
+      },
+      "id": "e89b892c-9e75-4eb1-bbcb-458f4b0443a9",
+      "name": "Allowed Action Placeholder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, -160],
+      "notes": "Replace this with the real business action after testing."
+    },
+    {
+      "parameters": {
+        "operation": "waitForApproval",
+        "queueEntryId": "={{ $json.globiguard.queueEntryId }}",
+        "maxAttempts": 60,
+        "intervalMs": 1000
+      },
+      "id": "82ddcd69-72cb-40e5-ae1a-4fbe9fe26d92",
+      "name": "Wait for Approval",
+      "type": "n8n-nodes-globiguard.globiGuard",
+      "typeVersion": 1,
+      "position": [820, 80],
+      "notes": "Only wire this from the queued output. Do not wire unresolved queued items directly to a business action."
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item) => ({ json: { blocked: true, reason: item.json.globiguard?.reason ?? 'Blocked by GlobiGuard', authorizationId: item.json.globiguard?.authorizationId } }));"
+      },
+      "id": "a9aa8a27-d79d-4a20-aa87-b4fd539c09a6",
+      "name": "Blocked Audit Placeholder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [820, 300],
+      "notes": "Keep blocked items isolated. Connect this to logging or ticketing, not the business action."
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Example Business Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Example Business Payload": {
+      "main": [
+        [
+          {
+            "node": "GlobiGuard Checkpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GlobiGuard Checkpoint": {
+      "main": [
+        [
+          {
+            "node": "Allowed Action Placeholder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "Blocked Audit Placeholder",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-05-26T00:00:00.000Z",
+  "versionId": "globiguard-governed-email-starter-v1"
+}

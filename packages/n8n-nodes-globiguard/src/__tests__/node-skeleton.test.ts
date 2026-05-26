@@ -18,6 +18,8 @@ describe("n8n node skeleton", () => {
 
     expect(credential.name).toBe("globiGuardApi");
     expect(node.description.name).toBe("globiGuard");
+    expect(node.description.icon).toBe("file:globiguard.svg");
+    expect(node.description.defaults).toMatchObject({ color: "#10B981" });
     expect(node.description.credentials).toEqual([
       { name: "globiGuardApi", required: true }
     ]);

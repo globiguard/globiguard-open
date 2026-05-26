@@ -33,13 +33,14 @@ export class GlobiGuard implements INodeType {
   description: INodeTypeDescription = {
     displayName: "GlobiGuard",
     name: "globiGuard",
-    icon: "fa:shield-halved",
+    icon: "file:globiguard.svg",
     group: ["transform"],
     version: 1,
     description:
       "Register installs and place governance checkpoints before risky n8n actions.",
     defaults: {
-      name: "GlobiGuard"
+      name: "GlobiGuard",
+      color: "#10B981"
     },
     inputs: [NodeConnectionTypes.Main],
     outputs: [
@@ -103,7 +104,7 @@ export class GlobiGuard implements INodeType {
         displayName: "Package Version",
         name: "packageVersion",
         type: "string",
-        default: "1.0.2",
+        default: "1.0.3",
         displayOptions: {
           show: {
             operation: ["registerInstall"]
@@ -504,7 +505,7 @@ async function executeRegisterInstall(
   const packageVersion = this.getNodeParameter(
     "packageVersion",
     0,
-    "1.0.2"
+    "1.0.3"
   ) as string;
   const sendHeartbeat = this.getNodeParameter(
     "sendHeartbeat",
