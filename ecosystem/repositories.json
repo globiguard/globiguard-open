@@ -1,0 +1,62 @@
+{
+  "umbrellaLocalPath": "D:\\Dev\\globiguard-libraries",
+  "githubOrganization": "globiguard",
+  "repositories": [
+    {
+      "name": "globiguard-open",
+      "url": "https://github.com/globiguard/globiguard-open",
+      "language": "TypeScript",
+      "localPath": "D:\\Dev\\globiguard-libraries\\typescript\\globiguard-open",
+      "packageRegistries": ["npm"],
+      "scope": "TypeScript SDK, React bindings, n8n node, shared contracts"
+    },
+    {
+      "name": "globiguard-python",
+      "url": "https://github.com/globiguard/globiguard-python",
+      "language": "Python",
+      "localPath": "D:\\Dev\\globiguard-libraries\\python\\globiguard-python",
+      "packageRegistries": ["PyPI"],
+      "scope": "Python SDK plus FastAPI, Django, and Flask integrations"
+    },
+    {
+      "name": "globiguard-go",
+      "url": "https://github.com/globiguard/globiguard-go",
+      "language": "Go",
+      "localPath": "D:\\Dev\\globiguard-libraries\\go\\globiguard-go",
+      "packageRegistries": ["Go modules"],
+      "scope": "Go SDK and HTTP middleware"
+    },
+    {
+      "name": "globiguard-dotnet",
+      "url": "https://github.com/globiguard/globiguard-dotnet",
+      "language": "C#",
+      "localPath": "D:\\Dev\\globiguard-libraries\\dotnet\\globiguard-dotnet",
+      "packageRegistries": ["NuGet"],
+      "scope": ".NET SDK and ASP.NET Core integrations"
+    },
+    {
+      "name": "globiguard-java",
+      "url": "https://github.com/globiguard/globiguard-java",
+      "language": "Java",
+      "localPath": "D:\\Dev\\globiguard-libraries\\java\\globiguard-java",
+      "packageRegistries": ["Maven Central"],
+      "scope": "Java SDK and Spring Boot integrations"
+    },
+    {
+      "name": "globiguard-php",
+      "url": "https://github.com/globiguard/globiguard-php",
+      "language": "PHP",
+      "localPath": "D:\\Dev\\globiguard-libraries\\php\\globiguard-php",
+      "packageRegistries": ["Packagist"],
+      "scope": "PHP SDK and Laravel integrations"
+    },
+    {
+      "name": "globiguard-ruby",
+      "url": "https://github.com/globiguard/globiguard-ruby",
+      "language": "Ruby",
+      "localPath": "D:\\Dev\\globiguard-libraries\\ruby\\globiguard-ruby",
+      "packageRegistries": ["RubyGems"],
+      "scope": "Ruby SDK and Rails integrations"
+    }
+  ]
+}

@@ -20,6 +20,22 @@ server-side controls.
 - `@globiguard/react` - browser-safe React provider, approval/evidence hooks, and governed-action UI helpers that submit through caller-owned server endpoints
 - `n8n-nodes-globiguard` - public-ready n8n community-node package with install registration and Governance Checkpoint operation before risky workflow actions
 
+## Ecosystem repositories
+
+`globiguard-open` is the TypeScript/npm home. Other language SDKs live in
+separate public repositories under the same GitHub organization and are tracked
+in [`ecosystem/repositories.json`](./ecosystem/repositories.json).
+
+| Language | Repository | Local umbrella path |
+| --- | --- | --- |
+| TypeScript / npm | [`globiguard-open`](https://github.com/globiguard/globiguard-open) | `D:\Dev\globiguard-libraries\typescript\globiguard-open` |
+| Python | [`globiguard-python`](https://github.com/globiguard/globiguard-python) | `D:\Dev\globiguard-libraries\python\globiguard-python` |
+| Go | [`globiguard-go`](https://github.com/globiguard/globiguard-go) | `D:\Dev\globiguard-libraries\go\globiguard-go` |
+| .NET | [`globiguard-dotnet`](https://github.com/globiguard/globiguard-dotnet) | `D:\Dev\globiguard-libraries\dotnet\globiguard-dotnet` |
+| Java | [`globiguard-java`](https://github.com/globiguard/globiguard-java) | `D:\Dev\globiguard-libraries\java\globiguard-java` |
+| PHP | [`globiguard-php`](https://github.com/globiguard/globiguard-php) | `D:\Dev\globiguard-libraries\php\globiguard-php` |
+| Ruby | [`globiguard-ruby`](https://github.com/globiguard/globiguard-ruby) | `D:\Dev\globiguard-libraries\ruby\globiguard-ruby` |
+
 ## Connection model
 
 The packages connect to GlobiGuard through the control plane and, for trusted
