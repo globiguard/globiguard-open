@@ -113,54 +113,112 @@ export function App({
   }
 
   return (
-    <main style={{ fontFamily: "sans-serif", margin: "2rem", maxWidth: "48rem" }}>
-      <h1>GlobiGuard React Simple Example</h1>
-      <p>
-        This example stays browser-safe: it talks to the control plane, not the
-        decision engine.
-      </p>
-      <p>
-        Control plane URL:{" "}
-        <code>{controlPlaneUrl ?? "not configured"}</code>
-      </p>
-      <button onClick={handleRegisterInstall} type="button">
-        Register install
-      </button>
-      <p>{status}</p>
-      <hr style={{ margin: "2rem 0" }} />
-      <h2>Optional realtime queue subscription</h2>
-      <p>
-        Realtime uses an explicit bearer token handshake against the control-plane
-        websocket gateway.
-      </p>
-      <p>
-        Queue org ID: <code>{realtimeQueueOrgId ?? "not configured"}</code>
-      </p>
-      <button onClick={handleToggleRealtimeQueue} type="button">
-        {realtimeSubscriptionRef.current ? "Disconnect realtime" : "Subscribe to queue"}
-      </button>
-      <p>{realtimeStatus}</p>
-      <hr style={{ margin: "2rem 0" }} />
-      <h2>Browser-safe governance UI</h2>
-      <p>
-        These widgets use sample metadata to demonstrate the same states a
-        caller-owned server endpoint would return after governing a real action.
-      </p>
-      <PolicyDecisionBadge decision="QUEUE" />
-      <QueuedActionNotice queueEntryId="queue_sample_claim_email" />
-      <GovernedActionBoundary
-        decision={{
-          contractVersion: "2026-04-action-beta",
-          authorizationId: "auth_sample_claim_email",
-          decision: "QUEUE",
-          approvalState: "PENDING",
-          queueEntryId: "queue_sample_claim_email",
-          evidenceRefs: [],
-          reason: "Human approval required before sending claim-status email."
-        }}
-      >
-        <button type="button">Send claim-status email</button>
-      </GovernedActionBoundary>
+    <main
+      className="gg-stack"
+      style={{
+        gap: "1.25rem",
+        margin: "clamp(1rem, 4vw, 3rem) auto",
+        maxWidth: "72rem",
+        padding: "0 clamp(1rem, 3vw, 2rem)"
+      }}
+    >
+      <section className="gg-card">
+        <div className="gg-card__header">
+          <div className="gg-stack">
+            <h1 className="gg-card__title">GlobiGuard React Simple Example</h1>
+            <p className="gg-card__description">
+              Browser-safe controls that talk to the control plane, not the
+              decision engine.
+            </p>
+          </div>
+          <PolicyDecisionBadge decision="QUEUE" labels={{ QUEUE: "Demo state" }} />
+        </div>
+        <div className="gg-grid">
+          <div className="gg-stat">
+            <span className="gg-stat__label">Control plane URL</span>
+            <span className="gg-stat__value">
+              <code className="gg-code">{controlPlaneUrl ?? "not configured"}</code>
+            </span>
+          </div>
+          <div className="gg-stat">
+            <span className="gg-stat__label">Install status</span>
+            <span className="gg-stat__value">{status}</span>
+          </div>
+        </div>
+        <button className="gg-button" onClick={handleRegisterInstall} type="button">
+          Register install
+        </button>
+      </section>
+
+      <section className="gg-card">
+        <div className="gg-card__header">
+          <div className="gg-stack">
+            <h2 className="gg-card__title">Optional realtime queue subscription</h2>
+            <p className="gg-card__description">
+              Realtime uses an explicit bearer token handshake against the
+              control-plane websocket gateway.
+            </p>
+          </div>
+          <span className="gg-badge" data-tone={realtimeClient ? "info" : "neutral"}>
+            {realtimeClient ? "Configured" : "Disabled"}
+          </span>
+        </div>
+        <div className="gg-grid">
+          <div className="gg-stat">
+            <span className="gg-stat__label">Queue org ID</span>
+            <span className="gg-stat__value">
+              <code className="gg-code">
+                {realtimeQueueOrgId ?? "not configured"}
+              </code>
+            </span>
+          </div>
+          <div className="gg-stat">
+            <span className="gg-stat__label">Realtime status</span>
+            <span className="gg-stat__value">{realtimeStatus}</span>
+          </div>
+        </div>
+        <button
+          className="gg-button"
+          onClick={handleToggleRealtimeQueue}
+          type="button"
+        >
+          {realtimeSubscriptionRef.current
+            ? "Disconnect realtime"
+            : "Subscribe to queue"}
+        </button>
+      </section>
+
+      <section className="gg-card">
+        <div className="gg-card__header">
+          <div className="gg-stack">
+            <h2 className="gg-card__title">Browser-safe governance UI</h2>
+            <p className="gg-card__description">
+              These widgets use sample metadata to demonstrate the same states a
+              caller-owned server endpoint would return after governing a real
+              action.
+            </p>
+          </div>
+          <PolicyDecisionBadge decision="QUEUE" />
+        </div>
+        <QueuedActionNotice density="compact" queueEntryId="queue_sample_claim_email" />
+        <GovernedActionBoundary
+          density="compact"
+          decision={{
+            contractVersion: "2026-04-action-beta",
+            authorizationId: "auth_sample_claim_email",
+            decision: "QUEUE",
+            approvalState: "PENDING",
+            queueEntryId: "queue_sample_claim_email",
+            evidenceRefs: [],
+            reason: "Human approval required before sending claim-status email."
+          }}
+        >
+          <button className="gg-button" type="button">
+            Send claim-status email
+          </button>
+        </GovernedActionBoundary>
+      </section>
+
       <EvidencePackageSummary
         summary={{
           boundary: {

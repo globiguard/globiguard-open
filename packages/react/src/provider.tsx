@@ -1,32 +1,81 @@
 import {
   createContext,
   useContext,
+  type CSSProperties,
   type PropsWithChildren,
   type ReactNode
 } from "react";
 
 import type { GlobiguardBrowserClient } from "@globiguard/sdk";
 
+import {
+  createGlobiguardThemeStyle,
+  GlobiguardStyleSheet,
+  type GlobiguardThemeMode,
+  type GlobiguardThemeTokens
+} from "./styles.js";
+
 const GlobiguardContext = createContext<GlobiguardBrowserClient | null>(null);
 
 export interface GlobiguardProviderProps extends PropsWithChildren {
   client: GlobiguardBrowserClient;
+  className?: string;
   fallback?: ReactNode;
+  style?: CSSProperties;
+  styleNonce?: string;
+  styles?: "default" | "none";
+  theme?: GlobiguardThemeMode;
+  tokens?: GlobiguardThemeTokens;
 }
 
 export function GlobiguardProvider({
   client,
+  className,
   children,
-  fallback = null
+  fallback = null,
+  style,
+  styleNonce,
+  styles = "default",
+  theme = "system",
+  tokens
 }: GlobiguardProviderProps) {
+  const themedStyle = {
+    ...createGlobiguardThemeStyle(tokens),
+    ...style
+  };
+  const content = client ? (
+    <GlobiguardContext.Provider value={client}>
+      <div
+        className={["gg-root", className].filter(Boolean).join(" ")}
+        data-globiguard-scope
+        data-globiguard-theme={theme}
+        style={themedStyle}
+      >
+        {children}
+      </div>
+    </GlobiguardContext.Provider>
+  ) : (
+    fallback
+  );
+
+  if (styles === "none") {
+    return content;
+  }
+
   if (!client) {
-    return fallback;
+    return (
+      <>
+        <GlobiguardStyleSheet nonce={styleNonce} />
+        {content}
+      </>
+    );
   }
 
   return (
-    <GlobiguardContext.Provider value={client}>
-      {children}
-    </GlobiguardContext.Provider>
+    <>
+      <GlobiguardStyleSheet nonce={styleNonce} />
+      {content}
+    </>
   );
 }
 

@@ -4,8 +4,10 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   EvidencePackageSummary,
   GovernedActionBoundary,
-  IncidentReplayTimeline
+  IncidentReplayTimeline,
+  PolicyDecisionBadge
 } from "../actions.js";
+import { GlobiguardStyleSheet } from "../styles.js";
 
 describe("@globiguard/react governance components", () => {
   it("fails closed instead of rendering protected children when decision state is missing", () => {
@@ -17,6 +19,30 @@ describe("@globiguard/react governance components", () => {
 
     expect(html).toContain("data-globiguard-fail-closed");
     expect(html).not.toContain("Send customer email");
+  });
+
+  it("ships a scoped dependency-free stylesheet for themed components", () => {
+    const html = renderToStaticMarkup(<GlobiguardStyleSheet nonce="nonce-123" />);
+
+    expect(html).toContain("data-globiguard-style-sheet");
+    expect(html).toContain("nonce=\"nonce-123\"");
+    expect(html).toContain(".gg-card");
+    expect(html).toContain("@media (max-width: 42rem)");
+  });
+
+  it("keeps badges customizable without losing state data attributes", () => {
+    const html = renderToStaticMarkup(
+      <PolicyDecisionBadge
+        className="custom-decision"
+        decision="BLOCK"
+        style={{ marginInlineStart: "1rem" }}
+      />
+    );
+
+    expect(html).toContain("gg-badge custom-decision");
+    expect(html).toContain("data-globiguard-decision=\"BLOCK\"");
+    expect(html).toContain("data-tone=\"danger\"");
+    expect(html).toContain("margin-inline-start:1rem");
   });
 
   it("renders protected children only for an ALLOW decision", () => {
@@ -86,7 +112,8 @@ describe("@globiguard/react governance components", () => {
     );
 
     expect(html).toContain("data-globiguard-evidence-package=\"evpkg_123\"");
-    expect(html).toContain("raw payload included");
+    expect(html).toContain("gg-card");
+    expect(html).toContain("Raw payload included");
     expect(html).toContain("false");
   });
 
@@ -124,4 +151,3 @@ describe("@globiguard/react governance components", () => {
     expect(html).toContain("No resume event observed.");
   });
 });
-
