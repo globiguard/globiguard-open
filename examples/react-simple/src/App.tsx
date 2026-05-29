@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-import {
-  buildInstallRegistrationRequest,
-  type GlobiguardRealtimeSubscription
-} from "@globiguard/sdk";
+import { buildInstallRegistrationRequest } from "@globiguard/sdk";
+import type {
+  GlobiguardRealtimeClient,
+  GlobiguardRealtimeSubscription
+} from "@globiguard/realtime";
 
 import {
   EvidencePackageSummary,
@@ -17,12 +18,14 @@ import {
 export interface AppProps {
   bootstrapProfile: Parameters<typeof buildInstallRegistrationRequest>[0];
   controlPlaneUrl?: string;
+  realtimeClient?: GlobiguardRealtimeClient;
   realtimeQueueOrgId?: string;
 }
 
 export function App({
   bootstrapProfile,
   controlPlaneUrl,
+  realtimeClient,
   realtimeQueueOrgId
 }: AppProps) {
   const client = useGlobiguardClient();
@@ -32,7 +35,7 @@ export function App({
       : "Set the example control-plane URL to test install registration."
   );
   const [realtimeStatus, setRealtimeStatus] = useState(
-    client.realtime && realtimeQueueOrgId
+    realtimeClient && realtimeQueueOrgId
       ? `Ready to subscribe to queue events for ${realtimeQueueOrgId}`
       : "Realtime queue subscription is disabled until a bearer token and org ID are configured."
   );
@@ -79,7 +82,7 @@ export function App({
   }
 
   function handleToggleRealtimeQueue() {
-    if (!client.realtime || !realtimeQueueOrgId) {
+    if (!realtimeClient || !realtimeQueueOrgId) {
       setRealtimeStatus(
         "Realtime queue subscription is disabled until a bearer token and org ID are configured."
       );
@@ -94,7 +97,7 @@ export function App({
     }
 
     setRealtimeStatus("Connecting to realtime queue updates...");
-    realtimeSubscriptionRef.current = client.realtime.subscribeQueue(
+    realtimeSubscriptionRef.current = realtimeClient.subscribeQueue(
       realtimeQueueOrgId,
       {
         onEvent: (event) => {

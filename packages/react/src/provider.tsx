@@ -5,10 +5,7 @@ import {
   type ReactNode
 } from "react";
 
-import type {
-  GlobiguardBrowserClient,
-  GlobiguardRealtimeClient
-} from "@globiguard/sdk";
+import type { GlobiguardBrowserClient } from "@globiguard/sdk";
 
 const GlobiguardContext = createContext<GlobiguardBrowserClient | null>(null);
 
@@ -44,16 +41,3 @@ export function useGlobiguardClient(): GlobiguardBrowserClient {
 
   return client;
 }
-
-export function useGlobiguardRealtimeClient(): GlobiguardRealtimeClient {
-  const client = useGlobiguardClient();
-
-  if (!client.realtime) {
-    throw new Error(
-      "useGlobiguardRealtimeClient requires createBrowserClient({ realtime: ... }) configuration."
-    );
-  }
-
-  return client.realtime;
-}
-

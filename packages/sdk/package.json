@@ -1,6 +1,6 @@
 {
   "name": "@globiguard/sdk",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "description": "Server-first TypeScript SDK for GlobiGuard control-plane and trusted decision-engine connectivity.",
   "author": "GuideGDM",
   "license": "Apache-2.0",
@@ -36,15 +36,15 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@globiguard/contracts": "workspace:*",
-    "socket.io-client": "^4.8.3"
+    "@globiguard/contracts": "^1.0.1"
   },
   "devDependencies": {
     "vitest": "^2.1.8"
   },
   "scripts": {
     "build:deps": "pnpm --dir ../contracts build",
-    "build": "pnpm run build:deps && tsc -p tsconfig.json",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && pnpm run build:deps && tsc -p tsconfig.json",
     "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
     "pretest": "pnpm run build:deps",
     "test": "vitest run",

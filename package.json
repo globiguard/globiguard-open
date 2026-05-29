@@ -8,11 +8,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "pnpm --filter @globiguard/contracts build && pnpm --filter @globiguard/sdk build && pnpm --filter @globiguard/react build && pnpm --filter n8n-nodes-globiguard build",
-    "build:publish": "pnpm --filter @globiguard/contracts build && pnpm --filter @globiguard/sdk build && pnpm --filter @globiguard/react build",
-    "build:react-example-deps": "pnpm --filter @globiguard/contracts build && pnpm --filter @globiguard/sdk build && pnpm --filter @globiguard/react build",
-    "typecheck": "pnpm --filter @globiguard/contracts typecheck && pnpm --filter @globiguard/sdk typecheck && pnpm --filter @globiguard/react typecheck && pnpm --filter n8n-nodes-globiguard typecheck",
-    "test": "pnpm --filter @globiguard/contracts test && pnpm --filter @globiguard/sdk test && pnpm --filter @globiguard/react test && pnpm --filter n8n-nodes-globiguard test",
+    "build": "pnpm --filter @globiguard/contracts build && pnpm --filter @globiguard/sdk build && pnpm --filter @globiguard/realtime build && pnpm --filter @globiguard/react build && pnpm --filter n8n-nodes-globiguard build",
+    "build:publish": "pnpm --filter @globiguard/contracts build && pnpm --filter @globiguard/sdk build && pnpm --filter @globiguard/realtime build && pnpm --filter @globiguard/react build && pnpm --filter n8n-nodes-globiguard build",
+    "build:react-example-deps": "pnpm --filter @globiguard/contracts build && pnpm --filter @globiguard/sdk build && pnpm --filter @globiguard/realtime build && pnpm --filter @globiguard/react build",
+    "typecheck": "pnpm --filter @globiguard/contracts typecheck && pnpm --filter @globiguard/sdk typecheck && pnpm --filter @globiguard/realtime typecheck && pnpm --filter @globiguard/react typecheck && pnpm --filter n8n-nodes-globiguard typecheck",
+    "test": "pnpm --filter @globiguard/contracts test && pnpm --filter @globiguard/sdk test && pnpm --filter @globiguard/realtime test && pnpm --filter @globiguard/react test && pnpm --filter n8n-nodes-globiguard test",
     "changeset": "changeset",
     "changeset:version": "changeset version",
     "changeset:publish": "pnpm build:publish && changeset publish",
@@ -30,4 +30,3 @@
     "vitest": "^2.1.8"
   }
 }
-

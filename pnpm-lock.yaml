@@ -38,6 +38,9 @@ importers:
       '@globiguard/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@globiguard/realtime':
+        specifier: workspace:*
+        version: link:../../packages/realtime
       '@globiguard/sdk':
         specifier: workspace:*
         version: link:../../packages/sdk
@@ -72,7 +75,7 @@ importers:
         specifier: ^1.0.1
         version: link:../contracts
       '@globiguard/sdk':
-        specifier: ^1.0.1
+        specifier: ^2.0.0
         version: link:../sdk
     devDependencies:
       esbuild:
@@ -85,10 +88,10 @@ importers:
   packages/react:
     dependencies:
       '@globiguard/contracts':
-        specifier: workspace:*
+        specifier: ^1.0.1
         version: link:../contracts
       '@globiguard/sdk':
-        specifier: workspace:*
+        specifier: ^2.0.0
         version: link:../sdk
     devDependencies:
       '@types/react':
@@ -107,14 +110,24 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.19.17)
 
-  packages/sdk:
+  packages/realtime:
     dependencies:
       '@globiguard/contracts':
-        specifier: workspace:*
+        specifier: ^1.0.1
         version: link:../contracts
       socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
+    devDependencies:
+      vitest:
+        specifier: ^2.1.8
+        version: 2.1.9(@types/node@22.19.17)
+
+  packages/sdk:
+    dependencies:
+      '@globiguard/contracts':
+        specifier: ^1.0.1
+        version: link:../contracts
     devDependencies:
       vitest:
         specifier: ^2.1.8

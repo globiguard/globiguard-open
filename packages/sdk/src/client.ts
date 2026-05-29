@@ -13,7 +13,6 @@ import type {
   GlobiguardPublishableCredential,
   GlobiguardQueueClient,
   GlobiguardQueueReadClient,
-  GlobiguardRealtimeClient,
   GlobiguardResolvedActionGatewayConfig,
   GlobiguardSecretCredential,
   GlobiguardServiceTargets,
@@ -28,7 +27,6 @@ import {
 } from "./governed-actions.js";
 import { createActionsClient, createActionsReadClient } from "./resources/actions.js";
 import { requestJson, type GlobiguardRequestOptions } from "./fetch.js";
-import { createRealtimeClient, type GlobiguardSdkRealtimeConfig } from "./realtime.js";
 import { createAuditClient, createAuditReadClient } from "./resources/audit.js";
 import { createInstallsClient } from "./resources/installs.js";
 import { createOrgsClient } from "./resources/orgs.js";
@@ -49,14 +47,12 @@ export interface GlobiguardClientBaseConfig {
 export interface GlobiguardServerClientConfig extends GlobiguardClientBaseConfig {
   credential: GlobiguardSecretCredential | GlobiguardLocalCredential;
   actionGateway?: GlobiguardActionGatewayConfig;
-  realtime?: GlobiguardSdkRealtimeConfig;
 }
 
 export interface GlobiguardBrowserClientConfig
   extends Omit<GlobiguardClientBaseConfig, "services"> {
   credential: GlobiguardPublishableCredential | GlobiguardLocalCredential;
   services: Pick<GlobiguardServiceTargets, "controlPlane">;
-  realtime?: GlobiguardSdkRealtimeConfig;
 }
 
 export interface GlobiguardTransport {
@@ -90,7 +86,6 @@ export interface GlobiguardServerClient {
   orgs: GlobiguardOrgsClient;
   policies: GlobiguardPoliciesClient;
   queue: GlobiguardQueueClient;
-  realtime?: GlobiguardRealtimeClient;
   workflows: GlobiguardWorkflowsClient;
   governedActions: GlobiguardGovernedActionsClient;
 }
@@ -103,7 +98,6 @@ export interface GlobiguardBrowserClient {
   installs: GlobiguardInstallsClient;
   policies: GlobiguardPoliciesReadClient;
   queue: GlobiguardQueueReadClient;
-  realtime?: GlobiguardRealtimeClient;
   workflows: GlobiguardWorkflowsReadClient;
 }
 
@@ -204,37 +198,6 @@ function createTransport(config: {
         fetchImpl: config.fetchImpl,
         path,
         options
-      });
-    }
-  };
-}
-
-function createReadTransport(
-  transport: GlobiguardTransport
-): GlobiguardReadTransport {
-  return {
-    request<TResponse>(
-      path: string,
-      options?: Omit<GlobiguardRequestOptions, "body"> & {
-        method?: "GET";
-        body?: never;
-      }
-    ) {
-      if (options?.method && options.method !== "GET") {
-        throw new GlobiguardConfigError(
-          "Browser control-plane transport only supports GET requests."
-        );
-      }
-
-      if (options?.body !== undefined) {
-        throw new GlobiguardConfigError(
-          "Browser control-plane transport does not accept request bodies."
-        );
-      }
-
-      return transport.request<TResponse>(path, {
-        ...options,
-        method: "GET"
       });
     }
   };
@@ -431,9 +394,6 @@ export function createServerClient(
     orgs: createOrgsClient(controlPlane),
     policies: createPoliciesClient(controlPlane),
     queue,
-    realtime: config.realtime
-      ? createRealtimeClient(config.services.controlPlane, config.realtime)
-      : undefined,
     workflows: createWorkflowsClient(controlPlane),
     governedActions: createGovernedActionsClient({
       actions,
@@ -499,10 +459,6 @@ export function createBrowserClient(
     installs: createInstallsClient(controlPlane),
     policies: createPoliciesReadClient(controlPlane),
     queue: createQueueReadClient(controlPlane),
-    realtime: config.realtime
-      ? createRealtimeClient(config.services.controlPlane, config.realtime)
-      : undefined,
     workflows: createWorkflowsReadClient(controlPlane)
   };
 }
-

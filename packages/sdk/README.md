@@ -20,18 +20,15 @@ runtimes using secret or local credentials.
 
 - Browser-safe control-plane access: action authorization status, approval status,
   evidence references/summaries, incident replay metadata, install
-  registration/heartbeat plus audit, policy, queue, workflow reads, and optional
-  realtime subscriptions when an explicit websocket bearer/API-key handshake is
-  provided
+  registration/heartbeat plus audit, policy, queue, and workflow reads
 - Trusted server management: governed action authorization, approval creation,
   approval wait/polling, queue approvals, workflow management/runs, policy
   management, org management, API-key administration, audit evidence exports,
   incident replay lookup, and trust webhook verification through
   `@globiguard/sdk/server`
-- Realtime subscriptions use the control-plane websocket gateway and are
-  intentionally configured separately from REST publishable/secret credentials
-  because the websocket handshake trusts bearer/API-key auth, not the browser
-  publishable-key header model
+- Realtime subscriptions are intentionally split into `@globiguard/realtime` so
+  ordinary SDK installs do not pull websocket dependencies unless the app opts in
+  to the control-plane websocket gateway.
 - Audit evidence exports return a typed evidence-package artifact with requested
   scope, control mappings, provenance references, review history, and summary
   metadata aligned to the live control-plane export shape

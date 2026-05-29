@@ -8,8 +8,6 @@ import type {
 } from "@globiguard/contracts";
 import { io, type Socket } from "socket.io-client";
 
-import { GlobiguardConfigError } from "./errors.js";
-
 export type {
   GlobiguardRealtimeAuth,
   GlobiguardRealtimeClient,
@@ -18,6 +16,10 @@ export type {
   GlobiguardRealtimeSubscribeOptions,
   GlobiguardRealtimeSubscription
 } from "@globiguard/contracts";
+
+export class GlobiguardRealtimeConfigError extends Error {
+  readonly name = "GlobiguardRealtimeConfigError";
+}
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,7 +43,7 @@ export type GlobiguardRealtimeSocketFactory = (
   args: GlobiguardRealtimeSocketFactoryArgs
 ) => GlobiguardRealtimeSocketLike;
 
-export interface GlobiguardSdkRealtimeConfig
+export interface GlobiguardRealtimeClientConfig
   extends GlobiguardRealtimeConnectionConfig {
   socketFactory?: GlobiguardRealtimeSocketFactory;
 }
@@ -92,13 +94,11 @@ function validateRealtimePath(path?: string): string {
   const normalizedPath = path?.trim() || "/ws";
 
   if (!normalizedPath.startsWith("/")) {
-    throw new GlobiguardConfigError(
-      "Realtime path must start with '/'."
-    );
+    throw new GlobiguardRealtimeConfigError("Realtime path must start with '/'.");
   }
 
   if (normalizedPath.includes("?") || normalizedPath.includes("#")) {
-    throw new GlobiguardConfigError(
+    throw new GlobiguardRealtimeConfigError(
       "Realtime path must not include query strings or fragments."
     );
   }
@@ -110,7 +110,7 @@ function buildRealtimeAuthHeaders(auth: GlobiguardRealtimeAuth): Record<string, 
   const token = auth.token?.trim();
 
   if (!token) {
-    throw new GlobiguardConfigError(
+    throw new GlobiguardRealtimeConfigError(
       "Realtime auth requires a non-empty token."
     );
   }
@@ -120,13 +120,13 @@ function buildRealtimeAuthHeaders(auth: GlobiguardRealtimeAuth): Record<string, 
       return { token: `Bearer ${token}` };
     case "apiKey":
       if (!token.startsWith("gg_")) {
-        throw new GlobiguardConfigError(
+        throw new GlobiguardRealtimeConfigError(
           "Realtime API key auth requires a gg_ token."
         );
       }
       return { token };
     default:
-      throw new GlobiguardConfigError(
+      throw new GlobiguardRealtimeConfigError(
         "Realtime auth requires a recognized bearer or apiKey kind."
       );
   }
@@ -136,13 +136,15 @@ function assertNonEmptyRealtimeIdentifier(kind: string, value: string): string {
   const normalizedValue = value.trim();
 
   if (!normalizedValue) {
-    throw new GlobiguardConfigError(
-      `${kind} must be a non-empty string.`
-    );
+    throw new GlobiguardRealtimeConfigError(`${kind} must be a non-empty string.`);
   }
 
-  if (normalizedValue.includes("/") || normalizedValue.includes("?") || normalizedValue.includes("#")) {
-    throw new GlobiguardConfigError(
+  if (
+    normalizedValue.includes("/") ||
+    normalizedValue.includes("?") ||
+    normalizedValue.includes("#")
+  ) {
+    throw new GlobiguardRealtimeConfigError(
       `${kind} must not contain path or URL separators.`
     );
   }
@@ -154,15 +156,13 @@ function assertRealtimeIdentifier(kind: string, value: string): string {
   const normalizedValue = value.trim();
 
   if (!UUID_RE.test(normalizedValue)) {
-    throw new GlobiguardConfigError(
-      `${kind} must be a valid UUID.`
-    );
+    throw new GlobiguardRealtimeConfigError(`${kind} must be a valid UUID.`);
   }
 
   return normalizedValue;
 }
 
-class SDKRealtimeClient implements GlobiguardRealtimeClient {
+class RealtimeClient implements GlobiguardRealtimeClient {
   private socket: GlobiguardRealtimeSocketLike | null = null;
   private readonly listeners = new Map<string, Set<ListenerRecord>>();
   private readonly subscriptions = new Map<string, SubscriptionDescriptor>();
@@ -422,9 +422,9 @@ class SDKRealtimeClient implements GlobiguardRealtimeClient {
 
 export function createRealtimeClient(
   baseUrl: string,
-  config: GlobiguardSdkRealtimeConfig
+  config: GlobiguardRealtimeClientConfig
 ): GlobiguardRealtimeClient {
-  return new SDKRealtimeClient(
+  return new RealtimeClient(
     baseUrl,
     validateRealtimePath(config.path),
     buildRealtimeAuthHeaders(config.auth),

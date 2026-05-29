@@ -15,7 +15,8 @@ server-side controls.
 ## Packages
 
 - `@globiguard/contracts` - action, approval, evidence, audit, workflow, and shared cross-package types
-- `@globiguard/sdk` - server-first TypeScript SDK for action authorization, approvals, evidence, control-plane resources, sidecar/gateway action routing, and optional realtime decision subscriptions
+- `@globiguard/sdk` - server-first TypeScript SDK for action authorization, approvals, evidence, control-plane resources, and sidecar/gateway action routing
+- `@globiguard/realtime` - optional websocket client for queue, workflow, transparency, and governed-action decision subscriptions
 - `@globiguard/react` - browser-safe React provider, approval/evidence hooks, and governed-action UI helpers that submit through caller-owned server endpoints
 - `n8n-nodes-globiguard` - public-ready n8n community-node package with install registration and Governance Checkpoint operation before risky workflow actions
 
@@ -64,6 +65,8 @@ control-plane resource types.
   contracts.
 - [`packages/sdk/README.md`](./packages/sdk/README.md) - server and browser SDK
   usage boundaries.
+- `@globiguard/realtime` - optional websocket subscription package used by
+  realtime-capable examples and apps.
 - [`packages/react/README.md`](./packages/react/README.md) - browser-safe React
   bindings.
 - [`packages/n8n-nodes-globiguard/README.md`](./packages/n8n-nodes-globiguard/README.md)

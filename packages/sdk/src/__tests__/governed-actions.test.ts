@@ -155,7 +155,7 @@ describe("@globiguard/sdk governed actions", () => {
       deliveryId: "whdel_123",
       timestamp: "2026-05-17T20:00:00.000Z",
       eventType: "approval.approved",
-      signature: `v1=${await signWebhook("secret_123", headersForSigning(rawBody))}`
+      signature: `v1=${await signWebhook("secret_123", headersForSigning())}`
     };
 
     const result = await verifyTrustWebhook({
@@ -203,7 +203,7 @@ describe("@globiguard/sdk governed actions", () => {
       error: { kind: "WEBHOOK_VERIFICATION_FAILED" }
     });
 
-    const signed = await signWebhook("secret_123", headersForSigning(rawBody));
+    const signed = await signWebhook("secret_123", headersForSigning());
     headers.set(GLOBIGUARD_TRUST_WEBHOOK_HEADER_NAMES.signature, `v1=${signed}`);
 
     await expect(
@@ -236,7 +236,7 @@ describe("@globiguard/sdk governed actions", () => {
   });
 });
 
-function headersForSigning(rawBody: string): GlobiguardTrustWebhookHeaders {
+function headersForSigning(): GlobiguardTrustWebhookHeaders {
   return {
     deliveryId: "whdel_123",
     timestamp: "2026-05-17T20:00:00.000Z",
@@ -281,4 +281,3 @@ async function signWebhook(
 expect(GLOBIGUARD_TRUST_WEBHOOK_SIGNATURE_SCHEME).toBe(
   "globiguard-hmac-sha256-v1"
 );
-

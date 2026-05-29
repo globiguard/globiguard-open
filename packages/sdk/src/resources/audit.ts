@@ -3,7 +3,6 @@ import type {
   GlobiguardAuditEvidencePackageArtifact,
   GlobiguardAuditEvent,
   GlobiguardAuditExportRequest,
-  GlobiguardAuditExportResponse,
   GlobiguardAuditListRequest,
   GlobiguardAuditListResponse,
   GlobiguardAuditReadClient,

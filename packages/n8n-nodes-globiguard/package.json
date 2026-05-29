@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-globiguard",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "GlobiGuard n8n community node with install registration and governed-action checkpoints.",
   "keywords": [
     "n8n-community-node-package"
@@ -42,14 +42,14 @@
   },
   "dependencies": {
     "@globiguard/contracts": "^1.0.1",
-    "@globiguard/sdk": "^1.0.1"
+    "@globiguard/sdk": "^2.0.0"
   },
   "devDependencies": {
     "esbuild": "^0.25.10",
     "n8n-workflow": "^1.95.3"
   },
   "peerDependencies": {
-    "n8n-workflow": "*"
+    "n8n-workflow": ">=1.95.3 <2"
   },
   "scripts": {
     "build:deps": "pnpm --dir ../contracts build && pnpm --dir ../sdk build",
