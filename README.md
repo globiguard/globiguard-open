@@ -29,6 +29,7 @@ in [`ecosystem/repositories.json`](./ecosystem/repositories.json).
 | Language | Repository | Local umbrella path |
 | --- | --- | --- |
 | TypeScript / npm | [`globiguard-open`](https://github.com/globiguard/globiguard-open) | `D:\Dev\globiguard-libraries\typescript\globiguard-open` |
+| JavaScript / vanilla | [`globiguard-js`](https://github.com/globiguard/globiguard-js) | `D:\Dev\globiguard-libraries\javascript\globiguard-js` |
 | Python | [`globiguard-python`](https://github.com/globiguard/globiguard-python) | `D:\Dev\globiguard-libraries\python\globiguard-python` |
 | Go | [`globiguard-go`](https://github.com/globiguard/globiguard-go) | `D:\Dev\globiguard-libraries\go\globiguard-go` |
 | .NET | [`globiguard-dotnet`](https://github.com/globiguard/globiguard-dotnet) | `D:\Dev\globiguard-libraries\dotnet\globiguard-dotnet` |

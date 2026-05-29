@@ -11,6 +11,14 @@
       "scope": "TypeScript SDK, React bindings, n8n node, shared contracts"
     },
     {
+      "name": "globiguard-js",
+      "url": "https://github.com/globiguard/globiguard-js",
+      "language": "JavaScript",
+      "localPath": "D:\\Dev\\globiguard-libraries\\javascript\\globiguard-js",
+      "packageRegistries": ["npm"],
+      "scope": "Vanilla JavaScript SDK for browser and Node.js usage without TypeScript-specific package surfaces"
+    },
+    {
       "name": "globiguard-python",
       "url": "https://github.com/globiguard/globiguard-python",
       "language": "Python",
