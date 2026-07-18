@@ -70,7 +70,13 @@ Place GlobiGuard immediately before the real action node and choose the matching
 | Database Write | `database.write` | `database` |
 | Ticket Creation | `ticket.create` | `ticketing` |
 
-The node sends a metadata-safe payload summary to `/v1/actions/authorize` using the server credential. It annotates items with `json.globiguard` and, by default, stops `BLOCK` and `QUEUE` decisions before downstream action nodes run. Use **Annotate Only** only for dry runs or migrations.
+The node sends a metadata-safe payload summary to `/v1/actions/authorize`
+using the server credential. It annotates items with `json.globiguard` and
+routes every item to exactly one decision output by default. Connect only the
+ALLOW output to the unmodified business action. Connect MODIFY to a payload
+rebuild and fresh authorization step, QUEUE to Wait for Approval, and BLOCK to
+an explicit stopped path. Optional fail-fast modes can turn BLOCK, or BLOCK and
+QUEUE, into a node error when a workflow requires exception semantics.
 
 The node has separate branch outputs for allow, modified, blocked, queued, and
 error visibility. Do not wire blocked or unresolved queued branches to the same
@@ -92,8 +98,10 @@ QUEUE decisions to Wait for Approval, and keeps BLOCK decisions isolated.
 
 ## Approval, evidence, replay, and webhooks
 
-- **Wait for Approval** polls the queue entry and fails closed on rejected,
-  expired, still-pending, or unavailable state.
+- **Wait for Approval** polls the queue entry, accepts approved, auto-approved,
+  or resumed state, continues through escalated review, and fails closed on
+  rejected, expired, failed, modified-without-reauthorization, still-pending,
+  unknown, or unavailable state.
 - **Export Evidence Package** returns evidence package identifiers, checksums,
   summaries, and descriptors; large artifacts should be handled through
   metadata-safe pointers.

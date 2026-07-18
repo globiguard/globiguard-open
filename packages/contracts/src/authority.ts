@@ -135,7 +135,9 @@ export interface GlobiguardEvidenceSourceReference {
     | "approval"
     | "policy_version"
     | "workflow_run"
+    | "workflow_step"
     | "queue_entry"
+    | "evidence_package"
     | "control_mapping";
   id: string;
   uri?: string;
@@ -178,4 +180,3 @@ export interface GlobiguardEvidenceExportDescriptor {
     approxBytes?: number;
   };
 }
-

@@ -19,7 +19,7 @@
         "dataClasses": ["PII"],
         "purpose": "Send claim status update",
         "idempotencyKey": "={{ $json.claimId + ':email-status' }}",
-        "enforcementMode": "stop_until_allowed"
+        "enforcementMode": "route_by_decision"
       }
     },
     {
@@ -50,6 +50,38 @@
         [
           {
             "node": "GlobiGuard Checkpoint",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GlobiGuard Checkpoint": {
+      "main": [
+        [
+          {
+            "node": "Export Evidence Package",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [],
+        [
+          {
+            "node": "Wait for Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Wait for Approval": {
+      "main": [
+        [
+          {
+            "node": "Export Evidence Package",
             "type": "main",
             "index": 0
           }

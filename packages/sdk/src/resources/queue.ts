@@ -46,15 +46,17 @@ export function createQueueClient(
 
     decide(queueEntryId: string, request: GlobiguardQueueDecisionRequest) {
       const encodedQueueEntryId = encodePathSegment(queueEntryId);
+      const body = request.action === "resume"
+        ? {}
+        : Object.fromEntries(
+            Object.entries(request).filter(([key]) => key !== "action")
+          );
 
       return transport.request<GlobiguardQueueDecisionResponse>(
         `/v1/queue/${encodedQueueEntryId}/${request.action}`,
         {
           method: "POST",
-          body: {
-            reviewedBy: request.reviewedBy,
-            notes: request.notes
-          }
+          body
         }
       );
     }

@@ -253,6 +253,93 @@ describe("@globiguard/sdk", () => {
     expect(event.decision).toBe("QUEUE");
   });
 
+  it("reads metadata-safe evidence summaries and gap-aware incident replay", async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (
+        url ===
+        "https://control.example.com/v1/audit/evidence-packages/pkg_123/summary"
+      ) {
+        return createJsonResponse({
+          boundary: {
+            authorityLevel: "browser_read",
+            browserSafe: true,
+            serverSecretRequired: false,
+            rawPayloadAllowed: false
+          },
+          schemaVersion: "2026-05-evidence-summary-beta",
+          evidencePackageId: "pkg_123",
+          status: "ready",
+          scope: { workflowRunId: "run_123" },
+          decisionCounts: { ALLOW: 2 },
+          redaction: {
+            mode: "metadata_only",
+            rawPayloadIncluded: false
+          },
+          sourceRefs: [],
+          disclaimers: []
+        });
+      }
+
+      expect(url).toBe(
+        "https://control.example.com/v1/audit/incident-replay?correlationId=corr_123"
+      );
+      return createJsonResponse({
+        boundary: {
+          authorityLevel: "browser_read",
+          browserSafe: true,
+          serverSecretRequired: false,
+          rawPayloadAllowed: false
+        },
+        schemaVersion: "2026-05-incident-replay-beta",
+        incidentReplayId: "corr_123",
+        generatedAt: "2026-07-18T20:00:00.000Z",
+        lookup: {
+          correlationId: "corr_123"
+        },
+        complete: false,
+        correlationIds: ["corr_123"],
+        timeline: [],
+        gaps: [
+          {
+            id: "gap-1",
+            status: "missing",
+            expectedKind: "evidence_exported",
+            reason: "No evidence package has been generated."
+          }
+        ],
+        disclaimers: []
+      });
+    });
+
+    const client = createBrowserClient({
+      environment: "sandbox",
+      credential: {
+        kind: "publishable",
+        projectId: "proj_123",
+        token: "pk_test_123"
+      },
+      services: {
+        controlPlane: "https://control.example.com"
+      },
+      fetch: fetchImpl
+    });
+
+    const summary = await client.audit.getEvidencePackageSummary("pkg_123");
+    const replay = await client.audit.getIncidentReplay({
+      correlationId: "corr_123"
+    });
+
+    expect(summary).toMatchObject({
+      evidencePackageId: "pkg_123",
+      status: "ready"
+    });
+    expect(replay).toMatchObject({
+      incidentReplayId: "corr_123",
+      complete: false
+    });
+  });
+
   it("lists policies from the control plane in browser-safe mode", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe(
@@ -494,6 +581,59 @@ describe("@globiguard/sdk", () => {
     });
 
     expect(response.status).toBe("APPROVED");
+  });
+
+  it("posts metadata-safe queue modifications through the canonical route", async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("https://control.example.com/v1/queue/queue_123/modify");
+      expect(init?.method).toBe("POST");
+      expect(init?.body).toBe(
+        JSON.stringify({
+          reviewedBy: "operator@example.com",
+          reasonCode: "REMOVE_SSN",
+          modifiedPayloadSummary: {
+            sha256: "abc123",
+            fieldTypes: ["CUSTOMER_ID"]
+          }
+        })
+      );
+
+      return createJsonResponse({
+        id: "queue_123",
+        decision: "MODIFIED",
+        status: "MODIFIED",
+        resume_required: true
+      });
+    });
+
+    const client = createServerClient({
+      environment: "sandbox",
+      credential: {
+        kind: "secret",
+        projectId: "proj_123",
+        token: "sk_test_123",
+        environment: "sandbox"
+      },
+      services: {
+        controlPlane: "https://control.example.com"
+      },
+      fetch: fetchImpl
+    });
+
+    const response = await client.queue.decide("queue_123", {
+      action: "modify",
+      reviewedBy: "operator@example.com",
+      reasonCode: "REMOVE_SSN",
+      modifiedPayloadSummary: {
+        sha256: "abc123",
+        fieldTypes: ["CUSTOMER_ID"]
+      }
+    });
+
+    expect(response).toMatchObject({
+      status: "MODIFIED",
+      resume_required: true
+    });
   });
 
   it("creates workflow and policy resources from the server client", async () => {

@@ -86,6 +86,7 @@ export interface GlobiguardActionContext {
   purpose?: string;
   workflowRunId?: string;
   workflowStepId?: string;
+  correlationId?: string;
   policyId?: string;
   idempotencyKey?: string;
   metadata?: Record<string, unknown>;

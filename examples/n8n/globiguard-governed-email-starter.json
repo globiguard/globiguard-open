@@ -28,14 +28,14 @@
         "dataClasses": ["PII"],
         "purpose": "Send an approved customer notification",
         "idempotencyKey": "={{ $json.customerId + ':' + $json.messageType }}",
-        "enforcementMode": "annotate"
+        "enforcementMode": "route_by_decision"
       },
       "id": "72fdf2e0-25da-4715-a368-ed0cc8931657",
       "name": "GlobiGuard Checkpoint",
       "type": "n8n-nodes-globiguard.globiGuard",
       "typeVersion": 1,
       "position": [520, 0],
-      "notes": "Set Enforcement Mode to Stop Until Allowed when you connect a real downstream email/CRM/Slack action. Annotate Only keeps this starter easy to test."
+      "notes": "Route by Decision sends each item to exactly one governed branch. Connect a real business action only from ALLOW; MODIFY must rebuild and reauthorize, QUEUE must resolve review, and BLOCK stays stopped."
     },
     {
       "parameters": {

@@ -18,6 +18,10 @@ export type N8nGovernedActionType =
   (typeof N8N_GOVERNED_ACTION_TYPES)[number];
 
 export const N8N_ACTION_ENFORCEMENT_MODES = [
+  "route_by_decision",
+  "fail_on_block",
+  "fail_on_block_or_queue",
+  // Legacy values remain accepted so existing saved n8n workflows do not drift.
   "annotate",
   "stop_on_block",
   "stop_until_allowed"
@@ -92,7 +96,16 @@ export function shouldStopForGovernedAction(
     return false;
   }
 
-  if (enforcementMode === "stop_on_block") {
+  if (
+    enforcementMode === "route_by_decision"
+  ) {
+    return false;
+  }
+
+  if (
+    enforcementMode === "stop_on_block"
+    || enforcementMode === "fail_on_block"
+  ) {
     return decision.decision === "BLOCK";
   }
 

@@ -142,6 +142,57 @@ describe("@globiguard/sdk governed actions", () => {
     ).rejects.toBeInstanceOf(GlobiguardAuthorityError);
   });
 
+  it("returns resumed approvals and requires reauthorization for modified actions", async () => {
+    let status = "RESUMED";
+    const fetchImpl = vi.fn(async () =>
+      createJsonResponse({
+        id: "queue_123",
+        orgId: "org_123",
+        workflowRunId: "run_123",
+        workflowStepId: "step_123",
+        actionType: "email.send",
+        destinationSystem: "email",
+        riskScore: 0.9,
+        policyId: "pol_123",
+        payloadSummary: {},
+        fieldsInvolved: ["PII"],
+        status,
+        createdAt: "2026-05-17T20:00:00.000Z"
+      })
+    );
+    const client = createServerClient({
+      environment: "sandbox",
+      credential: {
+        kind: "secret",
+        projectId: "proj_123",
+        token: "sk_test_123",
+        environment: "sandbox"
+      },
+      services: {
+        controlPlane: "https://control.example.com"
+      },
+      fetch: fetchImpl
+    });
+
+    await expect(
+      client.governedActions.waitForApproval({
+        queueEntryId: "queue_123",
+        maxAttempts: 1
+      })
+    ).resolves.toMatchObject({ status: "RESUMED" });
+
+    status = "MODIFIED";
+    await expect(
+      client.governedActions.waitForApproval({
+        queueEntryId: "queue_123",
+        maxAttempts: 1
+      })
+    ).rejects.toMatchObject({
+      kind: "STEP_UP_REQUIRED",
+      queueEntryId: "queue_123"
+    });
+  });
+
   it("verifies trust webhooks with signed timestamp, event type, and delivery ID", async () => {
     const rawBody = JSON.stringify({
       contractVersion: "2026-05-trust-webhook-beta",

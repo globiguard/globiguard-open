@@ -184,14 +184,46 @@ async function waitForApproval(
     }
 
     const entry = await queue.get(options.queueEntryId);
-    if (entry.status === "APPROVED" || entry.status === "AUTO_APPROVED") {
+    if (
+      entry.status === "APPROVED"
+      || entry.status === "AUTO_APPROVED"
+      || entry.status === "RESUMED"
+    ) {
       return entry;
     }
 
-    if (entry.status === "REJECTED" || entry.status === "EXPIRED") {
+    if (
+      entry.status === "REJECTED"
+      || entry.status === "EXPIRED"
+      || entry.status === "FAILED"
+    ) {
       throw new GlobiguardAuthorityError({
         kind: "POLICY_BLOCKED",
         message: `Queued action resolved as ${entry.status}; do not perform the downstream business action.`,
+        queueEntryId: entry.id,
+        safeDetails: {
+          status: entry.status
+        }
+      });
+    }
+
+    if (entry.status === "MODIFIED") {
+      throw new GlobiguardAuthorityError({
+        kind: "STEP_UP_REQUIRED",
+        message:
+          "The reviewer approved a modified action summary. Rebuild the real payload from the authoritative review result and request a new authorization before executing it.",
+        queueEntryId: entry.id,
+        safeDetails: {
+          status: entry.status
+        }
+      });
+    }
+
+    if (entry.status !== "PENDING" && entry.status !== "ESCALATED") {
+      throw new GlobiguardAuthorityError({
+        kind: "CONTROL_PLANE_UNAVAILABLE",
+        message:
+          "GlobiGuard returned an unsupported approval state; the downstream business action remains stopped.",
         queueEntryId: entry.id,
         safeDetails: {
           status: entry.status
@@ -256,4 +288,3 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 function bytesToHex(bytes: Uint8Array): string {
   return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
-

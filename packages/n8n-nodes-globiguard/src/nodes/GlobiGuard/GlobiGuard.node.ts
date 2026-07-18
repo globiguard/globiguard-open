@@ -104,7 +104,7 @@ export class GlobiGuard implements INodeType {
         displayName: "Package Version",
         name: "packageVersion",
         type: "string",
-        default: "1.0.3",
+        default: "1.0.4",
         displayOptions: {
           show: {
             operation: ["registerInstall"]
@@ -222,22 +222,25 @@ export class GlobiGuard implements INodeType {
         displayName: "Enforcement Mode",
         name: "enforcementMode",
         type: "options",
-        default: "stop_until_allowed",
+        default: "route_by_decision",
         options: [
           {
-            name: "Annotate Only",
-            value: "annotate",
-            description: "Pass all items through with GlobiGuard decision metadata"
+            name: "Route by Decision",
+            value: "route_by_decision",
+            description:
+              "Send each item only to its ALLOW, MODIFY, BLOCK, or QUEUE branch"
           },
           {
-            name: "Stop on Block",
-            value: "stop_on_block",
-            description: "Stop only BLOCK decisions"
+            name: "Fail on Block",
+            value: "fail_on_block",
+            description:
+              "Fail the node on BLOCK and route ALLOW, MODIFY, and QUEUE decisions"
           },
           {
-            name: "Stop Until Allowed",
-            value: "stop_until_allowed",
-            description: "Stop BLOCK and QUEUE decisions before downstream action nodes run"
+            name: "Fail on Block or Queue",
+            value: "fail_on_block_or_queue",
+            description:
+              "Fail the node on BLOCK or unresolved QUEUE decisions"
           }
         ],
         displayOptions: {
@@ -505,7 +508,7 @@ async function executeRegisterInstall(
   const packageVersion = this.getNodeParameter(
     "packageVersion",
     0,
-    "1.0.3"
+    "1.0.4"
   ) as string;
   const sendHeartbeat = this.getNodeParameter(
     "sendHeartbeat",
@@ -595,7 +598,7 @@ async function executeGovernedAction(
     const enforcementMode = this.getNodeParameter(
       "enforcementMode",
       itemIndex,
-      "stop_until_allowed"
+      "route_by_decision"
     ) as N8nActionEnforcementMode;
 
     if (!destinationName.trim()) {
@@ -716,7 +719,7 @@ async function executeIncidentReplayLookup(
   inputItems: INodeExecutionData[],
   itemCount: number
 ): Promise<INodeExecutionData[]> {
-  const replay = await runtime.client.governedActions.getIncidentReplay({
+  const lookup = {
     workflowRunId: stringOrUndefined(this.getNodeParameter("workflowRunId", 0, "")),
     auditEventId: stringOrUndefined(this.getNodeParameter("auditEventId", 0, "")),
     authorizationId: stringOrUndefined(
@@ -724,7 +727,15 @@ async function executeIncidentReplayLookup(
     ),
     correlationId: stringOrUndefined(this.getNodeParameter("correlationId", 0, "")),
     queueEntryId: stringOrUndefined(this.getNodeParameter("queueEntryId", 0, ""))
-  });
+  };
+  if (Object.values(lookup).filter(Boolean).length !== 1) {
+    throw new NodeOperationError(
+      this.getNode(),
+      "Incident Replay Lookup requires exactly one workflow run, audit event, authorization, correlation, or queue entry ID.",
+      { itemIndex: 0 }
+    );
+  }
+  const replay = await runtime.client.governedActions.getIncidentReplay(lookup);
 
   return buildOutputItems(
     itemCount,

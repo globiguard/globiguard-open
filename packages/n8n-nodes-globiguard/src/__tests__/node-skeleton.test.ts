@@ -35,6 +35,11 @@ describe("n8n node skeleton", () => {
       "verifyWebhook",
       "registerInstall"
     ]);
+    expect(
+      node.description.properties.find(
+        (property) => property.name === "enforcementMode"
+      )?.default
+    ).toBe("route_by_decision");
   });
 
   it("builds runtime config from secret credential values", () => {
@@ -287,7 +292,7 @@ describe("n8n node skeleton", () => {
     });
   });
 
-  it("stops queued governed actions before downstream n8n actions by default", async () => {
+  it("routes queued governed actions to the queue branch by default", async () => {
     const fetchMock = vi.fn(
       async (_input: URL | string, _init?: RequestInit) =>
         new Response(
@@ -336,9 +341,75 @@ describe("n8n node skeleton", () => {
           destinationType: "ticketing",
           destinationName: "zendesk",
           dataClasses: ["CONFIDENTIAL"],
-          enforcementMode: "stop_until_allowed"
+          enforcementMode: "route_by_decision"
         };
 
+        return values[name] ?? defaultValue;
+      }
+    };
+
+    const result = await node.execute.call(
+      context as unknown as IExecuteFunctions
+    );
+
+    expect(result[0]).toEqual([]);
+    expect(result[3][0]?.json.globiguard).toMatchObject({
+      authorizationId: "auth_queued",
+      decision: "QUEUE",
+      queueEntryId: "queue_123"
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("preserves legacy fail-fast behavior for saved workflows", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            contractVersion: "2026-04-action-beta",
+            authorizationId: "auth_queued",
+            decision: "QUEUE",
+            approvalState: "PENDING",
+            queueEntryId: "queue_123",
+            evidenceRefs: []
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" }
+          }
+        )
+      )
+    );
+
+    const node = new GlobiGuard();
+    const context = {
+      continueOnFail: () => false,
+      getCredentials: async () => ({
+        controlPlaneUrl: "https://control.example.com",
+        environment: "sandbox",
+        credentialKind: "secret",
+        projectId: "proj_123",
+        token: "sk_test_123",
+        deploymentMode: "hosted",
+        issuerMode: "globiguard_issued",
+        installReporting: "default"
+      }),
+      getInputData: () => [{ json: { ticketId: "ticket_123" } }],
+      getNode: () => ({ name: "globiGuard" }),
+      getNodeParameter: (
+        name: string,
+        _itemIndex: number,
+        defaultValue?: unknown
+      ) => {
+        const values: Record<string, unknown> = {
+          operation: "governAction",
+          actionType: "ticket.create",
+          destinationType: "ticketing",
+          destinationName: "zendesk",
+          dataClasses: ["CONFIDENTIAL"],
+          enforcementMode: "stop_until_allowed"
+        };
         return values[name] ?? defaultValue;
       }
     };
@@ -346,7 +417,6 @@ describe("n8n node skeleton", () => {
     await expect(
       node.execute.call(context as unknown as IExecuteFunctions)
     ).rejects.toThrowError(/QUEUE decision/);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("routes annotate-only blocked decisions to the blocked output branch", async () => {
