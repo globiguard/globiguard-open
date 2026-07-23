@@ -1,7 +1,55 @@
 # n8n-nodes-globiguard
 
-n8n community-node package for GlobiGuard install registration and
-governed-action checkpoints.
+n8n community-node package for GlobiGuard governance, AI oversight, and observability.
+
+## Nodes
+
+| Node | Purpose |
+| --- | --- |
+| **GlobiGuard** | Governance checkpoint before any action (email, CRM, Slack, database, webhook, etc.) |
+| **GlobiGuardDetect** | Scan text for sensitive entities and PII before it reaches AI models or external services |
+| **GlobiGuardAiAgent** | Governed AI agent: scans input, governs every tool call, scans output, and captures evidence |
+| **GlobiGuardObserve** | Query scan evidence, governance traces, and metrics from inside a workflow using your API token |
+
+## Install
+
+In n8n: **Settings → Community Nodes → Install** → enter `n8n-nodes-globiguard`.
+
+## GlobiGuardDetect
+
+Scans a text field for sensitive entities before it reaches an AI model, database, or external service. Routes items with detected entities to the **detected** output and clean items to the **clean** output. Supports redaction strategies: none, mask, replace, drop.
+
+```
+[HTTP Request] → [GlobiGuardDetect] → detected → [Stop / Alert]
+                                    → clean    → [AI Model]
+```
+
+## GlobiGuardAiAgent
+
+A governed AI agent node. Connects to any n8n-compatible AI model via the **AI Model** sub-input. On each item:
+1. Scans the user message with Brain
+2. Runs a governance checkpoint (routes to **blocked** or **awaiting_approval** if sensitive)
+3. Calls the AI model
+4. Governs tool calls if tools are connected
+5. Scans the AI response
+
+Outputs: **completed**, **blocked**, **awaiting_approval**, **error**.
+
+## GlobiGuardObserve
+
+Queries the GlobiGuard observability API from inside a workflow. Use this to build audit dashboards, compliance reports, or alert workflows triggered by governance metrics.
+
+| Operation | Description |
+| --- | --- |
+| Get Dashboard | Summary metrics and activity |
+| Get Traces | List governance traces with optional from/to/correlationId filters |
+| Get Trace | Single trace by ID |
+| Get Evidence Detail | Full evidence package by ID |
+| Get Metrics | Aggregated governance metrics for a time window |
+
+```
+[Schedule Trigger] → [GlobiGuardObserve (Get Metrics)] → [IF block_rate > 0.1] → [Slack Alert]
+```
 
 ## Included capabilities
 
