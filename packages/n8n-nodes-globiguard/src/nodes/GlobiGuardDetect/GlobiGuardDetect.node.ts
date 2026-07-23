@@ -74,59 +74,67 @@ export class GlobiGuardDetect implements INodeType {
       const brain = runtime.client.brain;
 
       for (let i = 0; i < itemCount; i++) {
-        const inputItem = inputItems[i] ?? { json: {} };
-        const text = this.getNodeParameter("text", i, "") as string;
-        const labelsRaw = this.getNodeParameter("labels", i, "") as string;
-        const redactionStrategy = this.getNodeParameter("redactionStrategy", i, "none") as string;
-        const threshold = this.getNodeParameter("threshold", i, 0.5) as number;
+        try {
+          const inputItem = inputItems[i] ?? { json: {} };
+          const text = this.getNodeParameter("text", i, "") as string;
+          const labelsRaw = this.getNodeParameter("labels", i, "") as string;
+          const redactionStrategy = this.getNodeParameter("redactionStrategy", i, "none") as string;
+          const threshold = this.getNodeParameter("threshold", i, 0.5) as number;
 
-        if (!text.trim()) {
-          clean.push({ json: { ...inputItem.json, globiguard: { scanned: false, reason: "empty_text" } }, pairedItem: i });
-          continue;
-        }
+          if (!text.trim()) {
+            clean.push({ json: { ...inputItem.json, globiguard: { scanned: false, reason: "empty_text" } }, pairedItem: i });
+            continue;
+          }
 
-        const labels = labelsRaw ? labelsRaw.split(",").map((l) => l.trim()).filter(Boolean) : undefined;
+          const labels = labelsRaw ? labelsRaw.split(",").map((l) => l.trim()).filter(Boolean) : undefined;
 
-        let result: Record<string, unknown>;
-        if (redactionStrategy !== "none") {
-          result = await (brain as any).request("/v1/brain/redact", {
-            method: "POST",
-            body: { text, ...(labels ? { labels } : {}), strategy: redactionStrategy, threshold }
-          });
-        } else {
-          result = await (brain as any).request("/v1/brain/scan", {
-            method: "POST",
-            body: { text, ...(labels ? { labels } : {}), threshold }
-          });
-        }
+          let result: Record<string, unknown>;
+          if (redactionStrategy !== "none") {
+            result = await brain.request<Record<string, unknown>>("/v1/brain/redact", {
+              method: "POST",
+              body: { text, ...(labels ? { labels } : {}), strategy: redactionStrategy, threshold }
+            });
+          } else {
+            result = await brain.request<Record<string, unknown>>("/v1/brain/scan", {
+              method: "POST",
+              body: { text, ...(labels ? { labels } : {}), threshold }
+            });
+          }
 
-        const entities = (result.entities as unknown[]) ?? [];
-        const hasSensitive = entities.length > 0;
-        const outputItem: INodeExecutionData = {
-          json: {
-            ...inputItem.json,
-            globiguard: {
-              scanned: true,
-              has_sensitive: hasSensitive,
-              data_class: result.data_class ?? null,
-              entities,
-              ...(redactionStrategy !== "none" ? { redacted_text: result.redacted_text } : {})
-            }
-          },
-          pairedItem: i
-        };
+          const entities = (result.entities as unknown[]) ?? [];
+          const hasSensitive = entities.length > 0;
+          const outputItem: INodeExecutionData = {
+            json: {
+              ...inputItem.json,
+              globiguard: {
+                scanned: true,
+                has_sensitive: hasSensitive,
+                dataClass: result.dataClass ?? result.data_class ?? null,
+                entities,
+                ...(redactionStrategy !== "none" ? { redacted_text: result.redacted_text } : {})
+              }
+            },
+            pairedItem: i
+          };
 
-        if (hasSensitive) {
-          detected.push(outputItem);
-        } else {
-          clean.push(outputItem);
+          if (hasSensitive) {
+            detected.push(outputItem);
+          } else {
+            clean.push(outputItem);
+          }
+        } catch (itemError) {
+          if (this.continueOnFail()) {
+            clean.push({ json: { error: itemError instanceof Error ? itemError.message : "Unknown error" }, pairedItem: i });
+          } else {
+            throw new NodeOperationError(this.getNode(), itemError as Error, { itemIndex: i });
+          }
         }
       }
 
       return [detected, clean];
     } catch (error) {
       if (this.continueOnFail()) {
-        return [[{ json: { error: error instanceof Error ? error.message : "Unknown error" } }], []];
+        return [[], [{ json: { error: error instanceof Error ? error.message : "Unknown error" } }]];
       }
       throw new NodeOperationError(this.getNode(), error as Error, { itemIndex: 0 });
     }

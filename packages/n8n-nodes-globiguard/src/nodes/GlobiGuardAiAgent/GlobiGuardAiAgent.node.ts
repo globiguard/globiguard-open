@@ -11,6 +11,8 @@ import { buildN8nRuntimeConfig, normalizeN8nCredentialValues } from "../../confi
 import { createN8nRuntime } from "../../runtime.js";
 import { buildN8nActionAuthorizationRequest } from "../../actions.js";
 
+const SENSITIVE_CLASSES = new Set(["RESTRICTED", "SECRET", "PII", "PHI", "PCI"]);
+
 export class GlobiGuardAiAgent implements INodeType {
   description: INodeTypeDescription = {
     displayName: "GlobiGuard AI Agent",
@@ -49,34 +51,42 @@ export class GlobiGuardAiAgent implements INodeType {
         name: "scanInput",
         type: "boolean",
         default: true,
-        description: "Whether to scan the user message for sensitive entities before sending to the AI model."
+        description: "Scan the user message for sensitive entities before sending to the AI model."
       },
       {
         displayName: "Scan Output",
         name: "scanOutput",
         type: "boolean",
         default: true,
-        description: "Whether to scan the AI response for sensitive entities before returning it."
+        description: "Scan the AI response for sensitive entities before returning it."
       },
       {
         displayName: "Block on Sensitive Input",
         name: "blockOnSensitiveInput",
         type: "boolean",
         default: false,
-        description: "Whether to block and route to the blocked output if sensitive entities are detected in the input."
+        description: "Route to the blocked output if sensitive entities are detected in the input."
+      },
+      {
+        displayName: "Block on Sensitive Output",
+        name: "blockOnSensitiveOutput",
+        type: "boolean",
+        default: false,
+        description: "Route to the blocked output if sensitive entities are detected in the AI response."
       },
       {
         displayName: "Govern Tool Calls",
         name: "governToolCalls",
         type: "boolean",
         default: true,
-        description: "Whether to run a GlobiGuard governance checkpoint before each tool call the AI requests."
+        description: "Run a GlobiGuard governance checkpoint before each tool call the AI requests."
       },
       {
         displayName: "Input Data Classes",
         name: "inputDataClasses",
         type: "multiOptions",
         default: ["INTERNAL"],
+        description: "Data classes to declare on the input governance checkpoint when Brain is not configured.",
         options: [
           { name: "Public", value: "PUBLIC" },
           { name: "Internal", value: "INTERNAL" },
@@ -118,99 +128,162 @@ export class GlobiGuardAiAgent implements INodeType {
       }
 
       for (let i = 0; i < itemCount; i++) {
-        const inputItem = inputItems[i] ?? { json: {} };
-        const userMessage = this.getNodeParameter("userMessage", i, "") as string;
-        const scanInput = this.getNodeParameter("scanInput", i, true) as boolean;
-        const scanOutput = this.getNodeParameter("scanOutput", i, true) as boolean;
-        const blockOnSensitiveInput = this.getNodeParameter("blockOnSensitiveInput", i, false) as boolean;
-        const correlationId = (this.getNodeParameter("correlationId", i, "") as string).trim() || undefined;
-
-        const evidence: unknown[] = [];
-        let inputBlocked = false;
-
-        if (scanInput && runtime.client.brain) {
-          const classification = await runtime.client.brain.request<Record<string, unknown>>("/v1/brain/classify", {
-            method: "POST",
-            body: { text: userMessage }
-          });
-          const detectedClass = (classification.data_class ?? classification.dataClass ?? "PUBLIC") as string;
-
-          if (blockOnSensitiveInput && ["RESTRICTED", "SECRET", "PII", "PHI", "PCI"].includes(detectedClass)) {
-            const inputAuthz = await runtime.client.actions.authorize(
-              buildN8nActionAuthorizationRequest({
-                actionType: "ai.request",
-                destinationType: "custom" as GlobiguardDestinationSystemType,
-                destinationName: "ai_model",
-                dataClasses: [detectedClass as GlobiguardDataClass],
-                itemJson: { userMessage },
-                nodeName: this.getNode().name,
-                itemIndex: i,
-                correlationId
-              })
-            );
-            evidence.push({ stage: "input", ...inputAuthz });
-
-            if (inputAuthz.decision === "BLOCK") {
-              blocked.push({ json: { ...inputItem.json, globiguard: { blocked: true, stage: "input", evidence } }, pairedItem: i });
-              inputBlocked = true;
-            } else if (inputAuthz.decision === "QUEUE") {
-              awaitingApproval.push({ json: { ...inputItem.json, globiguard: { awaiting_approval: true, stage: "input", queueEntryId: inputAuthz.queueEntryId, evidence } }, pairedItem: i });
-              inputBlocked = true;
-            }
-          }
-        }
-
-        if (inputBlocked) continue;
-
-        let aiResponse: string | null = null;
         try {
-          const invoke = (modelData as any).invoke ?? (modelData as any).call;
-          if (typeof invoke === "function") {
-            const rawResponse = await invoke(userMessage);
-            aiResponse = typeof rawResponse === "string" ? rawResponse : (rawResponse?.content ?? JSON.stringify(rawResponse));
-          }
-        } catch (modelError) {
-          errors.push({ json: { ...inputItem.json, globiguard: { error: String(modelError), stage: "model_call" } }, pairedItem: i });
-          continue;
-        }
+          const inputItem = inputItems[i] ?? { json: {} };
+          const userMessage = this.getNodeParameter("userMessage", i, "") as string;
+          const scanInput = this.getNodeParameter("scanInput", i, true) as boolean;
+          const scanOutput = this.getNodeParameter("scanOutput", i, true) as boolean;
+          const blockOnSensitiveInput = this.getNodeParameter("blockOnSensitiveInput", i, false) as boolean;
+          const blockOnSensitiveOutput = this.getNodeParameter("blockOnSensitiveOutput", i, false) as boolean;
+          const governToolCalls = this.getNodeParameter("governToolCalls", i, true) as boolean;
+          const inputDataClasses = this.getNodeParameter("inputDataClasses", i, ["INTERNAL"]) as GlobiguardDataClass[];
+          const correlationId = (this.getNodeParameter("correlationId", i, "") as string).trim() || undefined;
 
-        let outputAuthz: unknown = null;
-        if (scanOutput && aiResponse && runtime.client.brain) {
-          const outClassification = await runtime.client.brain.request<Record<string, unknown>>("/v1/brain/classify", {
-            method: "POST",
-            body: { text: aiResponse }
-          });
-          const outClass = (outClassification.data_class ?? outClassification.dataClass ?? "PUBLIC") as string;
-          if (["RESTRICTED", "SECRET", "PII", "PHI", "PCI"].includes(outClass)) {
-            outputAuthz = await runtime.client.actions.authorize(
-              buildN8nActionAuthorizationRequest({
-                actionType: "ai.response",
-                destinationType: "custom" as GlobiguardDestinationSystemType,
-                destinationName: "caller",
-                dataClasses: [outClass as GlobiguardDataClass],
-                itemJson: { response: aiResponse },
-                nodeName: this.getNode().name,
-                itemIndex: i,
-                correlationId
-              })
-            );
-            evidence.push({ stage: "output", ...(outputAuthz as object) });
-          }
-        }
+          const evidence: unknown[] = [];
 
-        completed.push({
-          json: {
-            ...inputItem.json,
-            response: aiResponse,
-            globiguard: {
-              completed: true,
-              correlationId: correlationId ?? null,
-              evidence,
-              output_governed: outputAuthz !== null
+          // --- Input scan ---
+          if (scanInput) {
+            let detectedInputClasses: GlobiguardDataClass[] = inputDataClasses;
+
+            if (runtime.client.brain) {
+              const classification = await runtime.client.brain.request<Record<string, unknown>>("/v1/brain/classify", {
+                method: "POST",
+                body: { text: userMessage }
+              });
+              const detectedClass = (classification.dataClass ?? classification.data_class) as string | undefined;
+              if (detectedClass) {
+                detectedInputClasses = [detectedClass as GlobiguardDataClass];
+              }
             }
-          },
-          pairedItem: i
-        });
+
+            if (blockOnSensitiveInput && detectedInputClasses.some((c) => SENSITIVE_CLASSES.has(c))) {
+              const inputAuthz = await runtime.client.actions.authorize(
+                buildN8nActionAuthorizationRequest({
+                  actionType: "ai.request",
+                  destinationType: "custom" as GlobiguardDestinationSystemType,
+                  destinationName: "ai_model",
+                  dataClasses: detectedInputClasses,
+                  itemJson: { userMessage },
+                  nodeName: this.getNode().name,
+                  itemIndex: i,
+                  correlationId
+                })
+              );
+              evidence.push({ stage: "input", ...inputAuthz });
+
+              if (inputAuthz.decision === "BLOCK") {
+                blocked.push({ json: { ...inputItem.json, globiguard: { blocked: true, stage: "input", evidence } }, pairedItem: i });
+                continue;
+              }
+              if (inputAuthz.decision === "QUEUE") {
+                awaitingApproval.push({ json: { ...inputItem.json, globiguard: { awaiting_approval: true, stage: "input", queueEntryId: inputAuthz.queueEntryId, evidence } }, pairedItem: i });
+                continue;
+              }
+            }
+          }
+
+          // --- Model call ---
+          let aiResponse: string | null = null;
+          const modelDataRecord = modelData as unknown as Record<string, unknown>;
+          const invoke = modelDataRecord.invoke ?? modelDataRecord.call;
+          if (typeof invoke === "function") {
+            const rawResponse = await (invoke as (msg: string) => Promise<unknown>)(userMessage);
+            aiResponse = typeof rawResponse === "string"
+              ? rawResponse
+              : ((rawResponse as Record<string, unknown>)?.content as string | undefined) ?? JSON.stringify(rawResponse);
+          }
+
+          // --- Tool call governance ---
+          if (governToolCalls) {
+            const toolsData = await this.getInputConnectionData(NodeConnectionTypes.AiTool, 0) as unknown[] | undefined;
+            if (toolsData && toolsData.length > 0) {
+              const toolAuthz = await runtime.client.actions.authorize(
+                buildN8nActionAuthorizationRequest({
+                  actionType: "ai.tool_call",
+                  destinationType: "custom" as GlobiguardDestinationSystemType,
+                  destinationName: "ai_tools",
+                  dataClasses: inputDataClasses,
+                  itemJson: { userMessage, toolCount: toolsData.length },
+                  nodeName: this.getNode().name,
+                  itemIndex: i,
+                  correlationId
+                })
+              );
+              evidence.push({ stage: "tool_call", ...toolAuthz });
+
+              if (toolAuthz.decision === "BLOCK") {
+                blocked.push({ json: { ...inputItem.json, globiguard: { blocked: true, stage: "tool_call", evidence } }, pairedItem: i });
+                continue;
+              }
+              if (toolAuthz.decision === "QUEUE") {
+                awaitingApproval.push({ json: { ...inputItem.json, globiguard: { awaiting_approval: true, stage: "tool_call", queueEntryId: toolAuthz.queueEntryId, evidence } }, pairedItem: i });
+                continue;
+              }
+            }
+          }
+
+          // --- Output scan ---
+          if (scanOutput && aiResponse) {
+            let detectedOutputClasses: GlobiguardDataClass[] = [];
+
+            if (runtime.client.brain) {
+              const outClassification = await runtime.client.brain.request<Record<string, unknown>>("/v1/brain/classify", {
+                method: "POST",
+                body: { text: aiResponse }
+              });
+              const outClass = (outClassification.dataClass ?? outClassification.data_class) as string | undefined;
+              if (outClass && SENSITIVE_CLASSES.has(outClass)) {
+                detectedOutputClasses = [outClass as GlobiguardDataClass];
+              }
+            }
+
+            if (detectedOutputClasses.length > 0) {
+              const outputAuthz = await runtime.client.actions.authorize(
+                buildN8nActionAuthorizationRequest({
+                  actionType: "ai.response",
+                  destinationType: "custom" as GlobiguardDestinationSystemType,
+                  destinationName: "caller",
+                  dataClasses: detectedOutputClasses,
+                  itemJson: { response: aiResponse },
+                  nodeName: this.getNode().name,
+                  itemIndex: i,
+                  correlationId
+                })
+              );
+              evidence.push({ stage: "output", ...outputAuthz });
+
+              if (outputAuthz.decision === "BLOCK") {
+                if (blockOnSensitiveOutput) {
+                  blocked.push({ json: { ...inputItem.json, globiguard: { blocked: true, stage: "output", evidence } }, pairedItem: i });
+                  continue;
+                }
+              } else if (outputAuthz.decision === "QUEUE") {
+                awaitingApproval.push({ json: { ...inputItem.json, globiguard: { awaiting_approval: true, stage: "output", queueEntryId: outputAuthz.queueEntryId, evidence } }, pairedItem: i });
+                continue;
+              }
+            }
+          }
+
+          completed.push({
+            json: {
+              ...inputItem.json,
+              response: aiResponse,
+              globiguard: {
+                completed: true,
+                correlationId: correlationId ?? null,
+                evidence,
+                output_governed: evidence.some((e) => (e as Record<string, unknown>).stage === "output")
+              }
+            },
+            pairedItem: i
+          });
+        } catch (itemError) {
+          if (this.continueOnFail()) {
+            errors.push({ json: { error: itemError instanceof Error ? itemError.message : "Unknown error", stage: "item" }, pairedItem: i });
+          } else {
+            throw new NodeOperationError(this.getNode(), itemError as Error, { itemIndex: i });
+          }
+        }
       }
     } catch (error) {
       if (this.continueOnFail()) {
