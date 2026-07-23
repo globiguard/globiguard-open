@@ -1,9 +1,9 @@
-name: Publish n8n-nodes-globiguard
+name: Publish @globiguard/react
 
 on:
   push:
     tags:
-      - 'n8n-v*.*.*'
+      - 'react-v*.*.*'
 
 jobs:
   publish:
@@ -25,7 +25,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Publish
-        run: pnpm --filter n8n-nodes-globiguard publish --no-git-checks
+        run: pnpm --filter @globiguard/react publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
