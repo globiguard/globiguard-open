@@ -8,6 +8,10 @@ import {
   type GlobiguardServerClient,
   type GlobiguardServerClientConfig
 } from "@globiguard/sdk";
+import {
+  createN8nObservabilityClient,
+  type N8nObservabilityClient
+} from "./observability.js";
 
 export interface N8nExecutionBoundary {
   browserAccessible: false;
@@ -20,9 +24,13 @@ export interface N8nRuntimeConfig {
   client: GlobiguardServerClientConfig;
 }
 
+export type N8nAugmentedServerClient = GlobiguardServerClient & {
+  observe: N8nObservabilityClient;
+};
+
 export interface N8nRuntime {
   bootstrapProfile: GlobiguardResolvedBootstrapProfile;
-  client: GlobiguardServerClient;
+  client: N8nAugmentedServerClient;
   executionBoundary: N8nExecutionBoundary;
 }
 
@@ -33,7 +41,10 @@ export function createN8nRuntime(config: N8nRuntimeConfig): N8nRuntime {
       "N8n runtime client environment must match the bootstrap profile environment."
     );
   }
-  const client = createServerClient(config.client);
+  const baseClient = createServerClient(config.client);
+  const client: N8nAugmentedServerClient = Object.assign(baseClient, {
+    observe: createN8nObservabilityClient(baseClient.controlPlane)
+  });
 
   return {
     bootstrapProfile,

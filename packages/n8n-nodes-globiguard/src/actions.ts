@@ -11,7 +11,10 @@ export const N8N_GOVERNED_ACTION_TYPES = [
   "slack.post",
   "webhook.call",
   "database.write",
-  "ticket.create"
+  "ticket.create",
+  "ai.request",
+  "ai.response",
+  "ai.tool_call"
 ] as const;
 
 export type N8nGovernedActionType =
@@ -40,6 +43,7 @@ export interface N8nActionCheckpointInput {
   itemIndex: number;
   purpose?: string;
   idempotencyKey?: string;
+  correlationId?: string;
 }
 
 export function buildN8nActionAuthorizationRequest({
@@ -51,7 +55,8 @@ export function buildN8nActionAuthorizationRequest({
   nodeName,
   itemIndex,
   purpose,
-  idempotencyKey
+  idempotencyKey,
+  correlationId
 }: N8nActionCheckpointInput): GlobiguardActionAuthorizationRequest {
   return {
     context: {
@@ -67,7 +72,8 @@ export function buildN8nActionAuthorizationRequest({
       metadata: {
         integrationKind: "n8n",
         nodeName,
-        itemIndex
+        itemIndex,
+        ...(correlationId ? { correlationId } : {})
       }
     }
   };

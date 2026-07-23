@@ -33,6 +33,7 @@ describe("n8n node skeleton", () => {
       "exportEvidencePackage",
       "incidentReplayLookup",
       "verifyWebhook",
+      "getObservabilityData",
       "registerInstall"
     ]);
     expect(

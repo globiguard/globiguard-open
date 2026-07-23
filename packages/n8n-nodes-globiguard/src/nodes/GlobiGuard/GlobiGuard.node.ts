@@ -95,10 +95,70 @@ export class GlobiGuard implements INodeType {
               "Verify a GlobiGuard trust webhook signature, timestamp, delivery ID, and replay window"
           },
           {
+            name: "View Traces & Evidence",
+            value: "getObservabilityData",
+            description:
+              "Pull traces, evidence packages, and metrics from your GlobiGuard dashboard using your API token"
+          },
+          {
             name: "Register Install",
             value: "registerInstall"
           }
         ]
+      },
+      {
+        displayName: "Observability View",
+        name: "observabilityView",
+        type: "options",
+        default: "dashboard",
+        options: [
+          { name: "Dashboard", value: "dashboard" },
+          { name: "Traces", value: "traces" },
+          { name: "Trace", value: "trace" },
+          { name: "Evidence", value: "evidence" },
+          { name: "Metrics", value: "metrics" }
+        ],
+        displayOptions: {
+          show: {
+            operation: ["getObservabilityData"]
+          }
+        }
+      },
+      {
+        displayName: "Trace ID",
+        name: "traceId",
+        type: "string",
+        default: "",
+        displayOptions: {
+          show: {
+            operation: ["getObservabilityData"],
+            observabilityView: ["trace"]
+          }
+        }
+      },
+      {
+        displayName: "Evidence Package ID",
+        name: "evidencePackageId",
+        type: "string",
+        default: "",
+        displayOptions: {
+          show: {
+            operation: ["getObservabilityData"],
+            observabilityView: ["evidence"]
+          }
+        }
+      },
+      {
+        displayName: "Limit",
+        name: "observabilityLimit",
+        type: "number",
+        default: 50,
+        displayOptions: {
+          show: {
+            operation: ["getObservabilityData"],
+            observabilityView: ["traces", "metrics"]
+          }
+        }
       },
       {
         displayName: "Package Version",
@@ -458,6 +518,12 @@ export class GlobiGuard implements INodeType {
         );
       }
 
+      if (operation === "getObservabilityData") {
+        return withPrimaryOutput(
+          await executeGetObservabilityData.call(this, runtime, inputItems, itemCount)
+        );
+      }
+
       if (operation === "verifyWebhook") {
         return withPrimaryOutput(
           await executeVerifyWebhook.call(
@@ -636,6 +702,7 @@ async function executeGovernedAction(
         ...inputItem.json,
         globiguard: {
           authorizationId: authorization.authorizationId,
+          correlationId: authorization.correlationId ?? null,
           decision: authorization.decision,
           approvalState: authorization.approvalState,
           queueEntryId: authorization.queueEntryId ?? null,
@@ -744,6 +811,53 @@ async function executeIncidentReplayLookup(
         incidentReplay: replay
       }
     },
+    inputItems.length > 0
+  );
+}
+
+async function executeGetObservabilityData(
+  this: IExecuteFunctions,
+  runtime: N8nRuntime,
+  inputItems: INodeExecutionData[],
+  itemCount: number
+): Promise<INodeExecutionData[]> {
+  const view = this.getNodeParameter("observabilityView", 0, "dashboard") as string;
+  const observe = runtime.client.observe;
+
+  if (!observe) {
+    throw new NodeOperationError(
+      this.getNode(),
+      "Observability client is not available on the current runtime.",
+      { itemIndex: 0 }
+    );
+  }
+
+  let data: unknown;
+  if (view === "dashboard") {
+    data = await observe.getDashboard();
+  } else if (view === "traces") {
+    const limit = this.getNodeParameter("observabilityLimit", 0, 50) as number;
+    data = await observe.getTraces({ limit });
+  } else if (view === "trace") {
+    const traceId = requireStringParameter.call(this, "traceId", 0);
+    data = await observe.getTrace(traceId);
+  } else if (view === "evidence") {
+    const evidencePackageId = requireStringParameter.call(this, "evidencePackageId", 0);
+    data = await observe.getEvidenceDetail(evidencePackageId);
+  } else if (view === "metrics") {
+    const limit = this.getNodeParameter("observabilityLimit", 0, 50) as number;
+    data = await observe.getMetrics({ limit });
+  } else {
+    throw new NodeOperationError(
+      this.getNode(),
+      `Unsupported observability view: ${view}`,
+      { itemIndex: 0 }
+    );
+  }
+
+  return buildOutputItems(
+    itemCount,
+    { globiguard: { observabilityView: view, data } },
     inputItems.length > 0
   );
 }
