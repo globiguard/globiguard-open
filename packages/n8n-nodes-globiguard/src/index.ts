@@ -13,6 +13,7 @@ export * from "./actions.js";
 export { GlobiGuard } from "./nodes/GlobiGuard/GlobiGuard.node.js";
 export { GlobiGuardDetect } from "./nodes/GlobiGuardDetect/GlobiGuardDetect.node.js";
 export { GlobiGuardAiAgent } from "./nodes/GlobiGuardAiAgent/GlobiGuardAiAgent.node.js";
+export { GlobiGuardObserve } from "./nodes/GlobiGuardObserve/GlobiGuardObserve.node.js";
 
 export function createN8nGlobiGuardClient(
   config: GlobiguardServerClientConfig
