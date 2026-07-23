@@ -3,6 +3,7 @@ export * from "./bootstrap.js";
 export * from "./errors.js";
 export * from "./fetch.js";
 export * from "./ai-intercept.js";
+export * from "./governance.js";
 export * from "./resources/actions.js";
 export * from "./resources/audit.js";
 export * from "./resources/installs.js";

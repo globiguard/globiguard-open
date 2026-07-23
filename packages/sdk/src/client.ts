@@ -25,6 +25,10 @@ import {
   createGovernedActionsClient,
   type GlobiguardGovernedActionsClient
 } from "./governed-actions.js";
+import {
+  createGovernanceClient,
+  type GlobiguardGovernanceClient
+} from "./governance.js";
 import { createActionsClient, createActionsReadClient } from "./resources/actions.js";
 import { requestJson, type GlobiguardRequestOptions } from "./fetch.js";
 import { createAuditClient, createAuditReadClient } from "./resources/audit.js";
@@ -88,6 +92,7 @@ export interface GlobiguardServerClient {
   queue: GlobiguardQueueClient;
   workflows: GlobiguardWorkflowsClient;
   governedActions: GlobiguardGovernedActionsClient;
+  governance: GlobiguardGovernanceClient;
 }
 
 export interface GlobiguardBrowserClient {
@@ -399,7 +404,8 @@ export function createServerClient(
       actions,
       audit,
       queue
-    })
+    }),
+    governance: createGovernanceClient(controlPlane),
   };
 }
 

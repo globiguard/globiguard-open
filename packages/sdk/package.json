@@ -1,6 +1,6 @@
 {
   "name": "@globiguard/sdk",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Server-first TypeScript SDK for GlobiGuard control-plane and trusted decision-engine connectivity.",
   "author": "GuideGDM",
   "license": "Apache-2.0",
