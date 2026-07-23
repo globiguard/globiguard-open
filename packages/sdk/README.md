@@ -58,6 +58,60 @@ duplicate queued/resumed business actions.
 
 Use `actionGateway: { mode: "sidecar" }` with `services.sidecar`, or `mode: "gateway"` with `services.gateway`, to route authorization through a local sidecar or governed gateway. Browser clients expose only `client.actions.getAuthorization()`, `getApproval()`, evidence reads, and incident replay metadata.
 
+## AI intercept
+
+`createAiIntercept` wraps any AI provider call with a GlobiGuard governance checkpoint. Input is authorized before the model is called; output is classified by Brain and authorized if sensitive. Supported providers: OpenAI, Anthropic, Google GenAI, AWS Bedrock, Cohere, Mistral, Ollama, Vercel AI SDK, LangChain JS.
+
+```ts
+import { createServerClient, createAiIntercept } from "@globiguard/sdk";
+import OpenAI from "openai";
+
+const serverClient = createServerClient({ ... });
+
+const intercept = createAiIntercept(
+  { actions: serverClient.actions, brain: serverClient.brain },
+  { mode: "scan_both" }   // scan_input | scan_output | scan_both
+);
+
+// OpenAI — returns a Proxy with governed chat.completions.create
+const governed = intercept.openai(new OpenAI());
+const response = await governed.chat.completions.create({
+  model: "gpt-4o",
+  messages: [{ role: "user", content: "Summarise this contract..." }],
+});
+
+// Anthropic
+import Anthropic from "@anthropic-ai/sdk";
+const governed = intercept.anthropic(new Anthropic());
+const msg = await governed.messages.create({ model: "claude-opus-4-8", max_tokens: 1024, messages: [...] });
+
+// Google GenAI
+import { GoogleGenerativeAI } from "@google/generative-ai";
+const model = new GoogleGenerativeAI("api-key").getGenerativeModel({ model: "gemini-1.5-pro" });
+const governed = intercept.google(model);
+const result = await governed.generateContent("Draft a privacy policy...");
+
+// AWS Bedrock
+import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
+const governed = intercept.bedrock(new BedrockRuntimeClient({ region: "us-east-1" }));
+const out = await governed.send(command);
+
+// Vercel AI SDK
+import { openai } from "@ai-sdk/openai";
+const governed = intercept.vercel(openai("gpt-4o"));
+const { text } = await generateText({ model: governed, prompt: "..." });
+
+// LangChain JS
+import { ChatOpenAI } from "@langchain/openai";
+const governed = intercept.langchain(new ChatOpenAI({ model: "gpt-4o" }));
+const result = await governed.invoke("Draft a contract...");
+
+// Any provider via generic()
+const governed = intercept.generic(myProviderFn, { extractInput: (params) => params.prompt });
+```
+
+When a governance decision is `BLOCK`, `GlobiguardAuthorityError` is thrown with `kind: "POLICY_BLOCKED"`. Pass `onBlock` in options to handle it yourself instead of throwing.
+
 ## Webhook verification
 
 ```ts
