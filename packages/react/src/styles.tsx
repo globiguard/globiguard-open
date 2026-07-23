@@ -607,7 +607,7 @@ export const globiguardStyles = `
 }
 
 /* ─── Responsive tweaks ────────────────────────────────────────────── */
-@media (max-width: 40rem) {
+@media (max-width: 42rem) {
   .gg-card__header {
     align-items: stretch;
     flex-direction: column;
