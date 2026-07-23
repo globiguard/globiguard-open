@@ -26,6 +26,12 @@ runtimes using secret or local credentials.
   management, org management, API-key administration, audit evidence exports,
   incident replay lookup, and trust webhook verification through
   `@globiguard/sdk/server`
+- AI intercept for 10 providers: OpenAI, Anthropic, Google GenAI, AWS Bedrock,
+  Cohere, Mistral, Ollama, Vercel AI SDK, LangChain JS, and any callable via `generic()`
+- Multi-agent governance: `GovernanceContext` records per-hop traces (input, tool-call,
+  output, agent-call) under a shared `correlation_id` for LangGraph, CrewAI, AutoGPT,
+  n8n, and generic orchestration frameworks; `serverClient.governance` exposes trace
+  and inter-agent trust token endpoints
 - Realtime subscriptions are intentionally split into `@globiguard/realtime` so
   ordinary SDK installs do not pull websocket dependencies unless the app opts in
   to the control-plane websocket gateway.
@@ -111,6 +117,87 @@ const governed = intercept.generic(myProviderFn, { extractInput: (params) => par
 ```
 
 When a governance decision is `BLOCK`, `GlobiguardAuthorityError` is thrown with `kind: "POLICY_BLOCKED"`. Pass `onBlock` in options to handle it yourself instead of throwing.
+
+## Multi-agent governance
+
+`GovernanceContext` records input, tool-call, and output governance hops under a shared `correlation_id`. All hops for the same workflow run are stitched into a single trace visible in the GlobiGuard portal.
+
+```ts
+import { createServerClient, GovernanceContext } from "@globiguard/sdk";
+
+const gg = createServerClient({ ... });
+
+// Works with LangGraph/LangChain.js, CrewAI, AutoGPT, n8n, or any framework.
+const ctx = new GovernanceContext(gg.governance, {
+  orgId: "org_123",
+  sessionId: "sess_abc",
+  correlationId: "corr_wf_run_001",  // shared across all agents in the workflow
+  agentId: "classify_node",
+  framework: "langgraph",
+  workflowName: "patient_intake",
+});
+
+// Scan input, record the hop
+const inputResp = await gg.brain!.evaluate({ text: userMessage, industry: "HEALTHCARE", sessionId: "sess_abc", orgId: "org_123" });
+await ctx.recordInput(inputResp);
+
+// ... call LLM ...
+
+// Scan output, record the hop (throws GovernanceBlockedError on BLOCK)
+const outputResp = await gg.brain!.evaluate({ text: llmOutput, industry: "HEALTHCARE", sessionId: "sess_abc", orgId: "org_123" });
+await ctx.recordOutput(outputResp);
+
+console.log(ctx.traceId);         // "gtrace_..."
+console.log(ctx.lastDecision);    // "ALLOW" | "MODIFY" | "QUEUE" | "BLOCK"
+```
+
+Pass `raiseOnBlock: false` to handle BLOCK decisions yourself. Use `ctx.recordToolCall("crm.write", evalResp)` for tool-call hops.
+
+The low-level client is at `serverClient.governance`:
+
+```ts
+// Record a hop manually
+await gg.governance.recordHop({
+  correlation_id: "corr_wf_run_001",
+  org_id: "org_123",
+  session_id: "sess_abc",
+  decision: "ALLOW",
+  phase: "tool_call",
+  tool_name: "web_search",
+  framework: "crewai",
+  latency_ms: 18.2,
+});
+
+// Fetch a full trace
+const traceResp = await gg.governance.getTrace("gtrace_abc123");
+
+// List recent traces for an org
+const traces = await gg.governance.listTraces("org_123", 20);
+```
+
+### Inter-agent trust
+
+Prevent prompt-injection attacks where a malicious instruction impersonates a trusted upstream agent.
+
+```ts
+// Agent A — issue a token at the start of its execution
+const token = await gg.governance.issueToken({
+  agentId: "extractor_agent",
+  orgId: "org_123",
+  sessionId: "sess_abc",
+  correlationId: "corr_wf_run_001",
+  ttlSeconds: 300,
+});
+
+// Agent B — verify the token before acting on A's output
+const result = await gg.governance.verifyToken(token, "corr_wf_run_001");
+
+if (result.verdict !== "trusted") {
+  throw new Error(`Upstream agent not trusted: ${result.reason}`);
+}
+```
+
+If the upstream agent's last hop was `BLOCK`, `verifyToken` automatically returns `verdict: "untrusted"` with `reason: "upstream_agent_blocked"`.
 
 ## Webhook verification
 
