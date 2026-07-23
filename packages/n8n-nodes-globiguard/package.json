@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-globiguard",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "GlobiGuard n8n community node with install registration and governed-action checkpoints.",
   "keywords": [
     "n8n-community-node-package"
