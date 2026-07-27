@@ -1,5 +1,5 @@
 {
-  "name": "GlobiGuard governed email starter",
+  "name": "GlobiGuard governed email starter v2",
   "nodes": [
     {
       "parameters": {},
@@ -11,7 +11,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { customerEmail: 'customer@example.com', customerId: 'cus_demo_123', messageType: 'renewal_notice', bodyPreview: 'Your renewal notice is ready.', claimId: 'claim_demo_001' } }];"
+        "jsCode": "return [{ json: { customerEmail: 'customer@example.com', customerId: 'cus_demo_123', messageType: 'renewal_notice', body: 'Your renewal notice is ready.' } }];"
       },
       "id": "8f98fd84-55e4-4682-8df6-f74552420b72",
       "name": "Example Business Payload",
@@ -21,107 +21,125 @@
     },
     {
       "parameters": {
-        "operation": "governAction",
-        "actionType": "email.send",
-        "destinationType": "email",
-        "destinationName": "customer-notification-email",
+        "governedActionType": "email.send",
+        "method": "POST",
+        "url": "https://api.example.com/v1/email",
+        "headersJson": "{\"Content-Type\":\"application/json\"}",
+        "bodyJson": "={{ { to: $json.customerEmail, customerId: $json.customerId, messageType: $json.messageType, body: $json.body } }}",
+        "responseFormat": "json",
+        "timeoutMs": 30000,
         "dataClasses": ["PII"],
-        "purpose": "Send an approved customer notification",
-        "idempotencyKey": "={{ $json.customerId + ':' + $json.messageType }}",
-        "enforcementMode": "route_by_decision"
+        "purpose": "Send a requested customer renewal notification",
+        "workflowRunId": "={{ $execution.id }}",
+        "idempotencyKey": "={{ $json.customerId + ':' + $json.messageType }}"
       },
       "id": "72fdf2e0-25da-4715-a368-ed0cc8931657",
-      "name": "GlobiGuard Checkpoint",
-      "type": "n8n-nodes-globiguard.globiGuard",
+      "name": "Governed Email API",
+      "type": "n8n-nodes-globiguard.globiGuardHttpAction",
       "typeVersion": 1,
       "position": [520, 0],
-      "notes": "Route by Decision sends each item to exactly one governed branch. Connect a real business action only from ALLOW; MODIFY must rebuild and reauthorize, QUEUE must resolve review, and BLOCK stays stopped."
+      "notes": "Replace api.example.com with the real HTTPS email API. This node authorizes and executes the exact request itself; no later ungoverned side effect is permitted."
     },
     {
-      "parameters": {
-        "jsCode": "return items.map((item) => ({ json: { ...item.json, nextStep: 'Connect your real Email/CRM/Slack action here only from the allow output.', globiguardDecision: item.json.globiguard?.decision } }));"
-      },
+      "parameters": {},
       "id": "e89b892c-9e75-4eb1-bbcb-458f4b0443a9",
-      "name": "Allowed Action Placeholder",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [820, -160],
-      "notes": "Replace this with the real business action after testing."
+      "name": "Email Executed",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1120, -240],
+      "notes": "The exact governed HTTP request completed. Use this branch for response handling and evidence correlation."
     },
     {
       "parameters": {
-        "operation": "waitForApproval",
-        "queueEntryId": "={{ $json.globiguard.queueEntryId }}",
-        "maxAttempts": 60,
-        "intervalMs": 1000
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "minutes",
+        "options": {}
+      },
+      "id": "fffd75ba-5522-49f8-8cb4-7fd52bbb54aa",
+      "name": "Wait Before Approval Check",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [780, 160],
+      "webhookId": "globiguard-approval-wait"
+    },
+    {
+      "parameters": {
+        "governedActionType": "email.send",
+        "method": "POST",
+        "url": "https://api.example.com/v1/email",
+        "headersJson": "{\"Content-Type\":\"application/json\"}",
+        "bodyJson": "={{ { to: $json.customerEmail, customerId: $json.customerId, messageType: $json.messageType, body: $json.body } }}",
+        "responseFormat": "json",
+        "timeoutMs": 30000,
+        "dataClasses": ["PII"],
+        "purpose": "Send a requested customer renewal notification",
+        "workflowRunId": "={{ $execution.id }}",
+        "idempotencyKey": "={{ $json.customerId + ':' + $json.messageType }}",
+        "approvalQueueEntryId": "={{ $json.globiguard.queueEntryId }}"
       },
       "id": "82ddcd69-72cb-40e5-ae1a-4fbe9fe26d92",
-      "name": "Wait for Approval",
-      "type": "n8n-nodes-globiguard.globiGuard",
+      "name": "Execute Approved Exact Email",
+      "type": "n8n-nodes-globiguard.globiGuardHttpAction",
       "typeVersion": 1,
-      "position": [820, 80],
-      "notes": "Only wire this from the queued output. Do not wire unresolved queued items directly to a business action."
+      "position": [1000, 160],
+      "notes": "This executor consumes the queue approval only if it matches this exact current request, obtains a fresh short-lived ALLOW, and performs the request inside the same boundary."
+    },
+    {
+      "parameters": {},
+      "id": "70a046ea-d3c9-467c-b0d6-a097aac56c90",
+      "name": "Apply Modification Then Reauthorize",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1120, 40],
+      "notes": "Apply the reviewed change to the authoritative payload, then connect it to a new Action Gate. Never execute the original item."
+    },
+    {
+      "parameters": {},
+      "id": "9a5f8b9c-2945-4cdf-ad9f-d2e56b47fb39",
+      "name": "Approval Still Pending",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1280, 280],
+      "notes": "Schedule another approval check or resume from an authenticated approval webhook. Do not connect this branch to the action."
     },
     {
       "parameters": {
-        "jsCode": "return items.map((item) => ({ json: { blocked: true, reason: item.json.globiguard?.reason ?? 'Blocked by GlobiGuard', authorizationId: item.json.globiguard?.authorizationId } }));"
+        "errorMessage": "GlobiGuard blocked the action or could not establish a safe authorization."
       },
       "id": "a9aa8a27-d79d-4a20-aa87-b4fd539c09a6",
-      "name": "Blocked Audit Placeholder",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [820, 300],
-      "notes": "Keep blocked items isolated. Connect this to logging or ticketing, not the business action."
+      "name": "Stop Unsafe Action",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [920, 400]
     }
   ],
   "connections": {
     "Manual Trigger": {
-      "main": [
-        [
-          {
-            "node": "Example Business Payload",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
+      "main": [[{ "node": "Example Business Payload", "type": "main", "index": 0 }]]
     },
     "Example Business Payload": {
+      "main": [[{ "node": "Governed Email API", "type": "main", "index": 0 }]]
+    },
+    "Governed Email API": {
       "main": [
-        [
-          {
-            "node": "GlobiGuard Checkpoint",
-            "type": "main",
-            "index": 0
-          }
-        ]
+        [{ "node": "Email Executed", "type": "main", "index": 0 }],
+        [{ "node": "Apply Modification Then Reauthorize", "type": "main", "index": 0 }],
+        [{ "node": "Stop Unsafe Action", "type": "main", "index": 0 }],
+        [{ "node": "Wait Before Approval Check", "type": "main", "index": 0 }],
+        [{ "node": "Stop Unsafe Action", "type": "main", "index": 0 }]
       ]
     },
-    "GlobiGuard Checkpoint": {
+    "Wait Before Approval Check": {
+      "main": [[{ "node": "Execute Approved Exact Email", "type": "main", "index": 0 }]]
+    },
+    "Execute Approved Exact Email": {
       "main": [
-        [
-          {
-            "node": "Allowed Action Placeholder",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [],
-        [
-          {
-            "node": "Blocked Audit Placeholder",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Wait for Approval",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        []
+        [{ "node": "Email Executed", "type": "main", "index": 0 }],
+        [{ "node": "Apply Modification Then Reauthorize", "type": "main", "index": 0 }],
+        [{ "node": "Stop Unsafe Action", "type": "main", "index": 0 }],
+        [{ "node": "Approval Still Pending", "type": "main", "index": 0 }],
+        [{ "node": "Stop Unsafe Action", "type": "main", "index": 0 }]
       ]
     }
   },
@@ -132,6 +150,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-05-26T00:00:00.000Z",
-  "versionId": "globiguard-governed-email-starter-v1"
+  "updatedAt": "2026-07-25T00:00:00.000Z",
+  "versionId": "globiguard-governed-email-starter-v2"
 }

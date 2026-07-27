@@ -13,6 +13,8 @@ export interface GlobiguardRequestOptions {
   query?: Record<string, QueryValue>;
   body?: unknown;
   signal?: AbortSignal;
+  /** Override the client request deadline for this call. */
+  timeoutMs?: number;
 }
 
 interface RequestJsonArgs {
@@ -23,6 +25,7 @@ interface RequestJsonArgs {
   fetchImpl: typeof fetch;
   path: string;
   options?: GlobiguardRequestOptions;
+  requestTimeoutMs: number;
 }
 
 function joinUrl(baseUrl: string, path: string): URL {
@@ -197,7 +200,8 @@ export async function requestJson<TResponse>({
   environment,
   fetchImpl,
   path,
-  options
+  options,
+  requestTimeoutMs
 }: RequestJsonArgs): Promise<TResponse> {
   const url = joinUrl(baseUrl, path);
   applyQuery(url, options?.query);
@@ -223,33 +227,90 @@ export async function requestJson<TResponse>({
     headers.set("content-type", "application/json");
   }
 
-  const response = await fetchImpl(url, {
-    method: options?.method ?? "GET",
-    headers,
-    body: requestBody.body,
-    signal: options?.signal
-  });
-
-  const hasNoContent =
-    response.status === 204 ||
-    response.status === 205 ||
-    response.headers.get("content-length") === "0";
-
-  const contentType = response.headers.get("content-type") ?? "";
-  const responseBody = hasNoContent
-    ? undefined
-    : contentType.includes("application/json")
-      ? await response.json()
-      : await response.text();
-
-  if (!response.ok) {
-    throw new GlobiguardHttpError(
-      `GlobiGuard request failed with status ${response.status}.`,
-      response.status,
-      responseBody
+  const timeoutMs = options?.timeoutMs ?? requestTimeoutMs;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 300_000) {
+    throw new GlobiguardConfigError(
+      "timeoutMs must be greater than 0 and at most 300000."
     );
   }
+  const requestSignal = boundedSignal(options?.signal, timeoutMs);
 
-  return responseBody as TResponse;
+  try {
+    return await Promise.race([
+      (async () => {
+        const response = await fetchImpl(url, {
+          method: options?.method ?? "GET",
+          headers,
+          body: requestBody.body,
+          signal: requestSignal.signal
+        });
+
+        const hasNoContent =
+          response.status === 204 ||
+          response.status === 205 ||
+          response.headers.get("content-length") === "0";
+        const contentType = response.headers.get("content-type") ?? "";
+        const responseBody = hasNoContent
+          ? undefined
+          : contentType.includes("application/json")
+            ? await response.json()
+            : await response.text();
+
+        if (!response.ok) {
+          throw new GlobiguardHttpError(
+            `GlobiGuard request failed with status ${response.status}.`,
+            response.status,
+            responseBody
+          );
+        }
+        return responseBody as TResponse;
+      })(),
+      requestSignal.aborted
+    ]);
+  } finally {
+    requestSignal.dispose();
+  }
+}
+
+function boundedSignal(
+  callerSignal: AbortSignal | undefined,
+  timeoutMs: number
+): { signal: AbortSignal; aborted: Promise<never>; dispose(): void } {
+  const controller = new AbortController();
+  const abortFromCaller = () => controller.abort(callerSignal?.reason);
+  if (callerSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    callerSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+  const timeout = setTimeout(
+    () => controller.abort(
+      new DOMException("GlobiGuard request timed out.", "TimeoutError")
+    ),
+    timeoutMs
+  );
+  let rejectAbort: (reason?: unknown) => void = () => undefined;
+  const abortRejected = () => rejectAbort(
+    controller.signal.reason ??
+      new DOMException("GlobiGuard request was aborted.", "AbortError")
+  );
+  const aborted = new Promise<never>((_resolve, reject) => {
+    rejectAbort = reject;
+    if (controller.signal.aborted) {
+      abortRejected();
+    } else {
+      controller.signal.addEventListener("abort", abortRejected, { once: true });
+    }
+  });
+
+  return {
+    signal: controller.signal,
+    aborted,
+    dispose() {
+      clearTimeout(timeout);
+      callerSignal?.removeEventListener("abort", abortFromCaller);
+      controller.signal.removeEventListener("abort", abortRejected);
+    }
+  };
 }
 

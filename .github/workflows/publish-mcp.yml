@@ -1,9 +1,9 @@
-name: Publish n8n-nodes-globiguard
+name: Publish @globiguard/mcp-server
 
 on:
   push:
     tags:
-      - 'n8n-v*.*.*'
+      - 'mcp-v*.*.*'
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22.22.0
+          node-version: 22
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
@@ -29,16 +29,16 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Verify tag matches package version
-        run: test "n8n-v$(node -p "require('./packages/n8n-nodes-globiguard/package.json').version")" = "$GITHUB_REF_NAME"
+        run: test "mcp-v$(node -p "require('./packages/mcp-server/package.json').version")" = "$GITHUB_REF_NAME"
 
       - name: Verify
         run: |
-          pnpm --filter n8n-nodes-globiguard typecheck
-          pnpm --filter n8n-nodes-globiguard lint
-          pnpm --filter n8n-nodes-globiguard test
-          pnpm --filter n8n-nodes-globiguard build
+          pnpm --filter @globiguard/mcp-server typecheck
+          pnpm --filter @globiguard/mcp-server test
+          pnpm --filter @globiguard/mcp-server build
 
       - name: Publish with npm provenance
-        run: pnpm --filter n8n-nodes-globiguard release
+        run: pnpm --filter @globiguard/mcp-server publish --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

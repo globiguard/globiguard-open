@@ -61,6 +61,9 @@ export interface GlobiguardGovernedActionsClient {
   waitForApproval(options: GlobiguardWaitForApprovalOptions): Promise<GlobiguardQueueEntry>;
 }
 
+/** Execution permits with a longer lifetime are treated as evidence, not authority. */
+export const GLOBIGUARD_MAX_EXECUTION_AUTHORIZATION_TTL_MS = 5 * 60 * 1000;
+
 export function createGovernedActionsClient(
   config: GlobiguardGovernedActionRuntimeConfig
 ): GlobiguardGovernedActionsClient {
@@ -71,33 +74,7 @@ export function createGovernedActionsClient(
 
     async authorizeActionOrThrow(request) {
       const decision = await config.actions.authorize(request);
-      if (decision.decision === "BLOCK") {
-        throw new GlobiguardAuthorityError({
-          kind: "POLICY_BLOCKED",
-          message: "GlobiGuard blocked the governed action.",
-          authorizationId: decision.authorizationId,
-          queueEntryId: decision.queueEntryId,
-          safeDetails: {
-            decision: decision.decision,
-            reason: decision.reason ?? null
-          }
-        });
-      }
-
-      if (decision.decision === "QUEUE") {
-        throw new GlobiguardAuthorityError({
-          kind: "QUEUED_FOR_REVIEW",
-          message:
-            "GlobiGuard queued the governed action for review; do not perform the downstream business action yet.",
-          authorizationId: decision.authorizationId,
-          queueEntryId: decision.queueEntryId,
-          safeDetails: {
-            decision: decision.decision,
-            approvalState: decision.approvalState
-          }
-        });
-      }
-
+      assertExecutableAuthorization(decision, { simulation: request.dryRun === true });
       return decision;
     },
 
@@ -129,6 +106,109 @@ export function createGovernedActionsClient(
       return waitForApproval(config.queue, options);
     }
   };
+}
+
+export function assertExecutableAuthorization(
+  decision: GlobiguardActionAuthorizationResponse,
+  options: { simulation?: boolean; now?: number } = {}
+): void {
+  const common = {
+    authorizationId: decision.authorizationId,
+    queueEntryId: decision.queueEntryId
+  };
+
+  switch (decision.decision) {
+    case "BLOCK":
+      throw new GlobiguardAuthorityError({
+        ...common,
+        kind: "POLICY_BLOCKED",
+        message: "GlobiGuard blocked the governed action.",
+        safeDetails: { decision: decision.decision, reason: decision.reason ?? null }
+      });
+    case "QUEUE":
+      throw new GlobiguardAuthorityError({
+        ...common,
+        kind: "QUEUED_FOR_REVIEW",
+        message:
+          "GlobiGuard queued the governed action for review; do not perform the downstream business action yet.",
+        safeDetails: {
+          decision: decision.decision,
+          approvalState: decision.approvalState
+        }
+      });
+    case "MODIFY":
+      throw new GlobiguardAuthorityError({
+        ...common,
+        kind: "STEP_UP_REQUIRED",
+        message:
+          "GlobiGuard requires changes. Apply them through a typed handler and reauthorize the exact resulting action before execution.",
+        safeDetails: { decision: decision.decision }
+      });
+    case "ALLOW":
+      break;
+    default:
+      throw new GlobiguardAuthorityError({
+        ...common,
+        kind: "CONTROL_PLANE_UNAVAILABLE",
+        message:
+          "GlobiGuard returned an unsupported decision; the governed action remains stopped."
+      });
+  }
+
+  if (options.simulation) {
+    throw nonExecutableAllow(decision, "DRY_RUN_ONLY",
+      "A dry-run decision is not an execution permit. Authorize the exact action again with dryRun disabled.");
+  }
+  if (
+    decision.executable !== true ||
+    decision.nextAction !== "EXECUTE_EXACT_ACTION_ONCE"
+  ) {
+    throw nonExecutableAllow(
+      decision,
+      "CONTROL_PLANE_MARKED_NON_EXECUTABLE",
+      "The control plane marked this response as non-executable. Follow its next action and reauthorize before execution.",
+    );
+  }
+  if (
+    decision.approvalState !== "NOT_REQUIRED" &&
+    decision.approvalState !== "APPROVED"
+  ) {
+    throw nonExecutableAllow(decision, "APPROVAL_STATE_NOT_EXECUTABLE",
+      "Resolve review and reauthorize the exact current action before execution.");
+  }
+
+  const now = options.now ?? Date.now();
+  const expiresAt = decision.expiresAt ? Date.parse(decision.expiresAt) : Number.NaN;
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) {
+    throw nonExecutableAllow(decision, "AUTHORIZATION_EXPIRY_INVALID",
+      "The authorization is expired or has no valid expiry. Reauthorize immediately before execution.");
+  }
+  if (expiresAt - now > GLOBIGUARD_MAX_EXECUTION_AUTHORIZATION_TTL_MS) {
+    throw nonExecutableAllow(decision, "AUTHORIZATION_EXPIRY_UNBOUNDED",
+      "The authorization expiry is too long for an execution permit. Request a short-lived authorization.");
+  }
+  if ((decision.obligations?.length ?? 0) > 0) {
+    throw nonExecutableAllow(decision, "UNFULFILLED_OBLIGATIONS",
+      "Enforce all obligations through typed handlers and reauthorize before execution.");
+  }
+  if (decision.modifications && Object.keys(decision.modifications).length > 0) {
+    throw nonExecutableAllow(decision, "UNFULFILLED_MODIFICATIONS",
+      "Apply all modifications and reauthorize the exact resulting action before execution.");
+  }
+}
+
+function nonExecutableAllow(
+  decision: GlobiguardActionAuthorizationResponse,
+  reason: string,
+  message: string
+): GlobiguardAuthorityError {
+  return new GlobiguardAuthorityError({
+    kind: "STEP_UP_REQUIRED",
+    message,
+    authorizationId: decision.authorizationId,
+    queueEntryId: decision.queueEntryId,
+    safeDetails: { decision: decision.decision, reason }
+  });
 }
 
 export async function deriveActionIdempotencyKey(

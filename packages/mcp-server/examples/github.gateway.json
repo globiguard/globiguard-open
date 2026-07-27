@@ -1,0 +1,53 @@
+{
+  "serverName": "github",
+  "connectorInstanceId": "github-production",
+  "connectorManifestVersion": "github-governance-v1",
+  "namespace": "github",
+  "downstream": {
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "passEnvironment": ["GITHUB_TOKEN"]
+  },
+  "actor": {
+    "id": "repo-maintainer-agent",
+    "type": "agent",
+    "displayName": "Repository Maintainer"
+  },
+  "defaults": {
+    "purpose": "Maintain approved repositories",
+    "dataClasses": ["INTERNAL"],
+    "destination": {
+      "type": "custom",
+      "name": "github"
+    }
+  },
+  "tools": {
+    "create_issue": {
+      "actionType": "github.issue.create",
+      "riskScore": 0.6,
+      "consequence": "medium"
+    },
+    "delete_repository": {
+      "enabled": false
+    }
+  },
+  "downstreamTimeoutMs": 60000,
+  "executionLedger": {
+    "mode": "file",
+    "directory": "/var/lib/globiguard/execution-ledger",
+    "maxEntries": 100000
+  },
+  "http": {
+    "host": "127.0.0.1",
+    "port": 3001,
+    "path": "/mcp",
+    "bearerTokenEnvironment": "GLOBIGUARD_MCP_BEARER_TOKEN",
+    "allowedHosts": ["mcp.example.com"],
+    "allowedOrigins": [],
+    "maxBodyBytes": 2097152,
+    "maxSessions": 100,
+    "sessionTtlMs": 86400000,
+    "requestsPerMinute": 600,
+    "tlsTerminatedByProxy": false
+  }
+}

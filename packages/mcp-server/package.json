@@ -1,0 +1,61 @@
+{
+  "name": "@globiguard/mcp-server",
+  "version": "0.1.0",
+  "description": "Agent-native GlobiGuard authority server and governed MCP tool gateway.",
+  "author": "GlobiGuard",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "globiguard-mcp": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "SECURITY.md",
+    "server.json",
+    "examples",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "mcpName": "io.github.globiguard/authority",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/globiguard/globiguard-open.git",
+    "directory": "packages/mcp-server"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@globiguard/contracts": "workspace:^1.0.1",
+    "@globiguard/sdk": "workspace:^2.0.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  },
+  "scripts": {
+    "build:deps": "pnpm --dir ../contracts build && pnpm --dir ../sdk build",
+    "build:pack": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "pnpm run clean && pnpm run build:deps && tsc -p tsconfig.json",
+    "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "pretest": "pnpm run build:deps",
+    "test": "vitest run",
+    "smoke:cli": "node dist/cli.js --help",
+    "prepack": "pnpm run build:pack",
+    "prepublishOnly": "pnpm run build"
+  }
+}

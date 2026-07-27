@@ -1,24 +1,25 @@
 {
   "name": "n8n-nodes-globiguard",
-  "version": "1.2.1",
-  "description": "GlobiGuard n8n community node with install registration and governed-action checkpoints.",
+  "version": "2.0.0",
+  "description": "Fail-closed action governance, sensitive-data detection, and audit evidence for n8n.",
   "keywords": [
-    "n8n-community-node-package"
+    "n8n-community-node-package",
+    "governance",
+    "data-loss-prevention",
+    "ai-safety",
+    "compliance"
   ],
-  "author": "GuideGDM",
-  "license": "Apache-2.0",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
-  ],
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+  "author": {
+    "name": "GuideGDM",
+    "email": "mugishomatgedeon@gmail.com"
   },
+  "license": "MIT",
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/globiguard/globiguard-open.git",
@@ -28,42 +29,43 @@
     "n8nNodesApiVersion": 1,
     "strict": true,
     "credentials": [
-      "dist/credentials/GlobiGuardApi.credentials.cjs"
+      "dist/credentials/GlobiGuardApi.credentials.js"
     ],
     "nodes": [
-      "dist/nodes/GlobiGuard/GlobiGuard.node.cjs",
-      "dist/nodes/GlobiGuardDetect/GlobiGuardDetect.node.cjs",
-      "dist/nodes/GlobiGuardAiAgent/GlobiGuardAiAgent.node.cjs",
-      "dist/nodes/GlobiGuardObserve/GlobiGuardObserve.node.cjs"
+      "dist/nodes/GlobiGuard/GlobiGuard.node.js",
+      "dist/nodes/GlobiGuardHttpAction/GlobiGuardHttpAction.node.js",
+      "dist/nodes/GlobiGuardDetect/GlobiGuardDetect.node.js",
+      "dist/nodes/GlobiGuardObserve/GlobiGuardObserve.node.js"
     ]
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "engines": {
-    "node": ">=22"
-  },
-  "dependencies": {
-    "@globiguard/contracts": "^1.0.1",
-    "@globiguard/sdk": "^2.0.0"
+    "node": ">=22.22.0"
   },
   "devDependencies": {
-    "esbuild": "^0.25.10",
-    "n8n-workflow": "^1.95.3"
+    "@n8n/node-cli": "0.40.3",
+    "eslint": "9.39.4",
+    "n8n-workflow": "2.16.0",
+    "prettier": "3.8.3",
+    "typescript": "5.9.3",
+    "vitest": "2.1.8"
   },
   "peerDependencies": {
-    "n8n-workflow": ">=1.95.3 <2"
+    "n8n-workflow": "*"
   },
   "scripts": {
-    "build:deps": "pnpm --dir ../contracts build && pnpm --dir ../sdk build",
-    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build:cjs": "esbuild src/nodes/GlobiGuard/GlobiGuard.node.ts src/nodes/GlobiGuardDetect/GlobiGuardDetect.node.ts src/nodes/GlobiGuardAiAgent/GlobiGuardAiAgent.node.ts src/nodes/GlobiGuardObserve/GlobiGuardObserve.node.ts src/credentials/GlobiGuardApi.credentials.ts --bundle --platform=node --format=cjs --target=node22 --external:n8n-workflow --outbase=src --outdir=dist --out-extension:.js=.cjs",
-    "build": "pnpm run clean && pnpm run build:deps && tsc -p tsconfig.json && pnpm run build:cjs",
-    "postbuild": "node ./scripts/copy-n8n-artifacts.cjs",
-    "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm run build",
-    "test": "vitest run --passWithNoTests",
+    "build": "n8n-node build",
+    "build:watch": "n8n-node build --watch",
+    "dev": "n8n-node dev",
+    "lint": "n8n-node lint",
+    "lint:fix": "n8n-node lint --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest --root ../.. run test/n8n-nodes-globiguard",
+    "release": "n8n-node release",
     "prepack": "pnpm run build",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "n8n-node prerelease"
   }
 }

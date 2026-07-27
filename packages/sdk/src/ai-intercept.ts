@@ -1,6 +1,11 @@
-import type { GlobiguardActionsClient, GlobiguardDataClass } from "@globiguard/contracts";
+import {
+  GLOBIGUARD_DATA_CLASSES,
+  type GlobiguardActionsClient,
+  type GlobiguardDataClass,
+} from "@globiguard/contracts";
 import type { GlobiguardTransport } from "./client.js";
 import { GlobiguardAuthorityError } from "./errors.js";
+import { assertExecutableAuthorization } from "./governed-actions.js";
 
 export type AiInterceptMode = "scan_input" | "scan_output" | "scan_both";
 
@@ -79,13 +84,18 @@ export function createAiIntercept(
             { method: "POST", body: { text: inputText } }
           );
           inputEntities = (classification.detectedEntities as unknown[] | undefined) ?? null;
-          const detectedClass = classification.dataClass as GlobiguardDataClass | undefined;
+          const detectedClass = normalizeDataClass(classification.dataClass);
+          const inputDetectionSummary = summarizeDetectedEntities(inputEntities);
           inputDecision = (await deps.actions.authorize({
             context: {
               actionType,
               destination: { type: "custom", name: destination },
               dataClasses: detectedClass ? [detectedClass] : [],
-              metadata: { detectedEntities: inputEntities }
+              fieldsInvolved: inputDetectionSummary.types,
+              metadata: {
+                detectionSource: "brain",
+                detectedEntityCount: inputDetectionSummary.count,
+              }
             }
           })) as unknown as Record<string, unknown>;
         } else {
@@ -97,17 +107,7 @@ export function createAiIntercept(
             }
           })) as unknown as Record<string, unknown>;
         }
-        if (inputDecision?.decision === "BLOCK") {
-          if (options.onBlock) {
-            options.onBlock(inputDecision);
-          } else {
-            throw new GlobiguardAuthorityError({
-              kind: "POLICY_BLOCKED",
-              message: "GlobiGuard blocked the AI input.",
-              authorizationId: inputDecision.authorizationId as string | undefined
-            });
-          }
-        }
+        assertAiDecisionExecutable(inputDecision, "input", options.onBlock);
       }
 
       const response = await callFn(callOptions);
@@ -121,16 +121,22 @@ export function createAiIntercept(
           );
           outputEntities =
             (outClassification.detectedEntities as unknown[] | undefined) ?? null;
-          const outClass = (outClassification.dataClass as GlobiguardDataClass | undefined) ?? "PUBLIC";
+          const outClass = normalizeDataClass(outClassification.dataClass) ?? "PUBLIC";
           if (SENSITIVE_CLASSES.has(outClass)) {
+            const outputDetectionSummary = summarizeDetectedEntities(outputEntities);
             outputDecision = (await deps.actions.authorize({
               context: {
                 actionType: "ai.response",
                 destination: { type: "custom", name: destination },
                 dataClasses: [outClass],
-                metadata: { detectedEntities: outputEntities }
+                fieldsInvolved: outputDetectionSummary.types,
+                metadata: {
+                  detectionSource: "brain",
+                  detectedEntityCount: outputDetectionSummary.count,
+                }
               }
             })) as unknown as Record<string, unknown>;
+            assertAiDecisionExecutable(outputDecision, "output", options.onBlock);
           }
         }
       }
@@ -368,6 +374,59 @@ export function createAiIntercept(
   };
 
   return self;
+}
+
+function normalizeDataClass(value: unknown): GlobiguardDataClass | undefined {
+  return typeof value === "string" &&
+    (GLOBIGUARD_DATA_CLASSES as readonly string[]).includes(value)
+    ? (value as GlobiguardDataClass)
+    : undefined;
+}
+
+function summarizeDetectedEntities(entities: unknown[] | null): {
+  count: number;
+  types: string[];
+} {
+  const safeTypes = new Set<string>();
+  for (const entity of entities ?? []) {
+    if (!entity || typeof entity !== "object" || Array.isArray(entity)) continue;
+    const record = entity as Record<string, unknown>;
+    const candidate = record.type ?? record.label ?? record.entityType;
+    if (
+      typeof candidate === "string" &&
+      /^[A-Z][A-Z0-9_]{0,63}$/.test(candidate)
+    ) {
+      safeTypes.add(candidate);
+    }
+    if (safeTypes.size >= 128) break;
+  }
+  return {
+    count: Math.min(entities?.length ?? 0, Number.MAX_SAFE_INTEGER),
+    types: [...safeTypes].sort(),
+  };
+}
+
+function assertAiDecisionExecutable(
+  decision: Record<string, unknown>,
+  phase: "input" | "output",
+  onBlock?: (decision: Record<string, unknown>) => void
+): void {
+  try {
+    assertExecutableAuthorization(
+      decision as unknown as Parameters<typeof assertExecutableAuthorization>[0]
+    );
+  } catch (error) {
+    if (decision.decision === "BLOCK") {
+      onBlock?.(decision);
+    }
+    if (error instanceof GlobiguardAuthorityError) {
+      throw new GlobiguardAuthorityError({
+        ...error.toJSON(),
+        message: `${error.message} The AI ${phase} was not released.`
+      });
+    }
+    throw error;
+  }
 }
 
 function extractResponseText(response: unknown): string | null {

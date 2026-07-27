@@ -66,6 +66,14 @@ export interface GlobiguardActionActor {
   displayName?: string;
 }
 
+export interface GlobiguardActionConnectorBinding {
+  instanceId?: string;
+  manifestVersion?: string;
+  schemaSha256?: string;
+  /** Metadata-only schema facts. Never include credentials or raw customer payload values. */
+  schemaSnapshot?: Record<string, unknown>;
+}
+
 export interface GlobiguardActionPayloadSummary {
   sha256?: string;
   approxBytes?: number;
@@ -89,6 +97,8 @@ export interface GlobiguardActionContext {
   correlationId?: string;
   policyId?: string;
   idempotencyKey?: string;
+  approvalQueueEntryId?: string;
+  connector?: GlobiguardActionConnectorBinding;
   metadata?: Record<string, unknown>;
 }
 
@@ -114,7 +124,20 @@ export interface GlobiguardApproval {
   updatedAt?: string | null;
   resolvedAt?: string | null;
   expiresAt?: string | null;
+  executionHandoff?:
+    | "NOT_READY"
+    | "READY_FOR_EXACT_REAUTHORIZATION"
+    | "CONSUMED";
+  canReauthorize?: boolean;
 }
+
+export type GlobiguardActionNextAction =
+  | "EXECUTE_EXACT_ACTION_ONCE"
+  | "REAUTHORIZE_EXACT_ACTION"
+  | "APPLY_MODIFICATIONS_AND_REAUTHORIZE"
+  | "WAIT_FOR_APPROVAL"
+  | "REQUEST_FRESH_AUTHORIZATION"
+  | "STOP";
 
 export interface GlobiguardActionDecision {
   authorizationId: string;
@@ -125,9 +148,12 @@ export interface GlobiguardActionDecision {
   evidenceRefs: GlobiguardEvidenceRef[];
   reason?: string;
   obligations?: string[];
-  modifications?: Record<string, unknown>;
+  modifications?: Record<string, unknown> | null;
   expiresAt?: string | null;
   correlationId?: string | null;
+  /** Required control-plane assertion. Executors must still independently validate the full response. */
+  executable: boolean;
+  nextAction: GlobiguardActionNextAction;
 }
 
 export interface GlobiguardActionDecisionSummary

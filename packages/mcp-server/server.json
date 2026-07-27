@@ -1,0 +1,65 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.globiguard/authority",
+  "title": "GlobiGuard Authority",
+  "description": "Govern AI actions; inspect policies, approvals, evidence, and incident timelines.",
+  "repository": {
+    "url": "https://github.com/globiguard/globiguard-open",
+    "source": "github",
+    "subfolder": "packages/mcp-server"
+  },
+  "websiteUrl": "https://globiguard.com",
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@globiguard/mcp-server",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "authority"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "GLOBIGUARD_PROJECT_ID",
+          "description": "GlobiGuard project ID",
+          "isRequired": true,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "GLOBIGUARD_SECRET_KEY",
+          "description": "Server-side GlobiGuard secret key",
+          "isRequired": true,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
+          "name": "GLOBIGUARD_ENVIRONMENT",
+          "description": "GlobiGuard environment: sandbox or live",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "default": "sandbox",
+          "choices": [
+            "sandbox",
+            "live"
+          ]
+        },
+        {
+          "name": "GLOBIGUARD_CONTROL_PLANE_URL",
+          "description": "Optional GlobiGuard control-plane base URL",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string",
+          "placeholder": "https://api.globiguard.com"
+        }
+      ]
+    }
+  ]
+}

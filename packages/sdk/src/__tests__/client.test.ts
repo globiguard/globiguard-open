@@ -1131,6 +1131,8 @@ describe("@globiguard/sdk", () => {
         contractVersion: "2026-04-action-beta",
         authorizationId: "auth_123",
         decision: "QUEUE",
+        executable: false,
+        nextAction: "WAIT_FOR_APPROVAL",
         approvalState: "PENDING",
         queueEntryId: "queue_123",
         evidenceRefs: [
