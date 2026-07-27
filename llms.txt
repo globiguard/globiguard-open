@@ -1,0 +1,76 @@
+# GlobiGuard Open
+
+GlobiGuard is an AI governance platform. It intercepts, authorizes, and audits
+AI agent actions before they execute — blocking dangerous actions, queuing
+high-risk decisions for human approval, and logging every outcome as tamper-evident evidence.
+
+## MCP Server (AI agent integration)
+
+Package: @globiguard/mcp-server
+Install: npx -y @globiguard/mcp-server authority
+MCP schema: https://github.com/globiguard/globiguard-open/blob/main/packages/mcp-server/server.json
+
+The MCP server exposes a governance authority to any MCP-capable AI agent
+(Claude, Cursor, Windsurf, Cline, etc). Agents call `globiguard_govern_action`
+before executing high-risk operations. The server returns ALLOW, BLOCK, MODIFY,
+or QUEUE decisions based on active policies.
+
+### MCP configuration (Claude Desktop / Cursor / Windsurf)
+
+```json
+{
+  "mcpServers": {
+    "globiguard": {
+      "command": "npx",
+      "args": ["-y", "@globiguard/mcp-server", "authority"],
+      "env": {
+        "GLOBIGUARD_PROJECT_ID": "project_...",
+        "GLOBIGUARD_SECRET_KEY": "ggsk_...",
+        "GLOBIGUARD_ENVIRONMENT": "sandbox"
+      }
+    }
+  }
+}
+```
+
+### MCP tools
+
+- `globiguard_govern_action` — authorize an action before execution
+- `globiguard_get_authorization` — retrieve a specific authorization decision
+- `globiguard_check_approval` — poll for human approval on a queued decision
+- `globiguard_get_evidence` — fetch tamper-evident audit evidence
+- `globiguard_get_audit_event` — inspect a specific audit event
+- `globiguard_list_active_policies` — list policies in force
+- `globiguard_get_policy` — retrieve a specific policy
+
+Active policies are also available as `globiguard://policies/{policyId}` MCP resources.
+
+### Governed tool gateway
+
+The MCP server can also act as a governed proxy for any other MCP server.
+Wrap any tool (GitHub, Slack, databases) with GlobiGuard governance — the
+downstream tool call only executes after an ALLOW decision.
+
+## SDK packages
+
+- `@globiguard/sdk` — TypeScript/Node.js server SDK
+- `@globiguard/react` — React hooks and UI components
+- `@globiguard/realtime` — WebSocket subscription client
+- `@globiguard/contracts` — shared types and contracts
+- `n8n-nodes-globiguard` — n8n workflow automation nodes
+
+## Other language SDKs
+
+- Python: globiguard (PyPI)
+- Go: github.com/globiguard/globiguard-go
+- Java: com.globiguard:globiguard (Maven Central)
+- .NET: GlobiGuard (NuGet)
+- PHP: globiguard/globiguard (Packagist)
+- Ruby: globiguard (RubyGems)
+
+## Documentation
+
+- Getting started: https://globiguard.com/docs
+- API reference: https://globiguard.com/docs/api
+- MCP server: https://github.com/globiguard/globiguard-open/tree/main/packages/mcp-server
+- n8n nodes: https://github.com/globiguard/globiguard-open/tree/main/packages/n8n-nodes-globiguard
