@@ -44,7 +44,7 @@ runtimes using secret or local credentials.
 Authorize actions only from a trusted runtime:
 
 ```ts
-const decision = await serverClient.governedActions.authorizeAction({
+const permit = await serverClient.governedActions.authorizeActionOrThrow({
   context: {
     actionType: "email.send",
     destination: { type: "email", name: "customer-email" },
@@ -54,10 +54,13 @@ const decision = await serverClient.governedActions.authorizeAction({
   }
 });
 
-if (decision.decision === "ALLOW" || decision.decision === "MODIFY") {
-  await sendClaimStatusEmail();
-}
+// Execute only the exact payload summarized for this short-lived permit.
+await sendClaimStatusEmail();
 ```
+
+`authorizeActionOrThrow()` returns only a current, non-dry-run `ALLOW` with a
+five-minute-or-shorter expiry and no unresolved obligations or modifications.
+Approval resolution is not itself a permit; reauthorize the exact current action.
 
 Use a stable persisted idempotency key. A fresh random key per retry can
 duplicate queued/resumed business actions.
@@ -67,6 +70,14 @@ Use `actionGateway: { mode: "sidecar" }` with `services.sidecar`, or `mode: "gat
 ## AI intercept
 
 `createAiIntercept` wraps any AI provider call with a GlobiGuard governance checkpoint. Input is authorized before the model is called; output is classified by Brain and authorized if sensitive. Supported providers: OpenAI, Anthropic, Google GenAI, AWS Bedrock, Cohere, Mistral, Ollama, Vercel AI SDK, LangChain JS.
+
+When a Brain client is configured, text is sent to that explicitly configured
+Brain endpoint for classification. Use a local or customer-controlled Brain
+endpoint when raw content must remain inside the customer data plane. Detector
+results returned to the intercept stay local: action authorization receives
+only the normalized data class, a bounded count, and allowlisted entity-type
+labels. Raw entity text, values, and spans are never copied into control-plane
+metadata.
 
 ```ts
 import { createServerClient, createAiIntercept } from "@globiguard/sdk";
@@ -116,7 +127,12 @@ const result = await governed.invoke("Draft a contract...");
 const governed = intercept.generic(myProviderFn, { extractInput: (params) => params.prompt });
 ```
 
-When a governance decision is `BLOCK`, `GlobiguardAuthorityError` is thrown with `kind: "POLICY_BLOCKED"`. Pass `onBlock` in options to handle it yourself instead of throwing.
+The AI wrapper releases neither the provider call nor a sensitive output on
+`BLOCK`, `QUEUE`, `MODIFY`, an invalid expiry, or unresolved obligations.
+`onBlock` is a notification hook; returning from it never creates fallthrough.
+
+SDK HTTP requests have a 10-second default deadline. Set `requestTimeoutMs` on
+the client or `timeoutMs`/`signal` on an individual transport request.
 
 ## Multi-agent governance
 

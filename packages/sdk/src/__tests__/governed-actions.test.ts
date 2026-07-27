@@ -34,6 +34,8 @@ describe("@globiguard/sdk governed actions", () => {
         contractVersion: "2026-04-action-beta",
         authorizationId: "authz_123",
         decision: "QUEUE",
+        executable: false,
+        nextAction: "WAIT_FOR_APPROVAL",
         approvalState: "PENDING",
         queueEntryId: "queue_123",
         evidenceRefs: [],

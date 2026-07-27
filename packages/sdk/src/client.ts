@@ -46,6 +46,8 @@ export interface GlobiguardClientBaseConfig {
   services: GlobiguardServiceTargets;
   clientName?: string;
   fetch?: typeof fetch;
+  /** Default deadline for every GlobiGuard HTTP request. Defaults to 10 seconds. */
+  requestTimeoutMs?: number;
 }
 
 export interface GlobiguardServerClientConfig extends GlobiguardClientBaseConfig {
@@ -192,6 +194,7 @@ function createTransport(config: {
     | GlobiguardLocalCredential;
   environment: GlobiguardEnvironment;
   fetchImpl: typeof fetch;
+  requestTimeoutMs: number;
 }): GlobiguardTransport {
   return {
     request<TResponse>(path: string, options?: GlobiguardRequestOptions) {
@@ -202,10 +205,24 @@ function createTransport(config: {
         environment: config.environment,
         fetchImpl: config.fetchImpl,
         path,
-        options
+        options,
+        requestTimeoutMs: config.requestTimeoutMs
       });
     }
   };
+}
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 10_000;
+const MAX_REQUEST_TIMEOUT_MS = 300_000;
+
+function resolveRequestTimeoutMs(value: number | undefined): number {
+  const timeoutMs = value ?? DEFAULT_REQUEST_TIMEOUT_MS;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > MAX_REQUEST_TIMEOUT_MS) {
+    throw new GlobiguardConfigError(
+      `requestTimeoutMs must be greater than 0 and at most ${MAX_REQUEST_TIMEOUT_MS}.`
+    );
+  }
+  return timeoutMs;
 }
 
 function resolveActionGatewayConfig(
@@ -256,6 +273,7 @@ export function createServerClient(
   const fetchImpl = getFetch(config.fetch);
   const clientName = config.clientName ?? "@globiguard/sdk";
   const credentialKind = (config.credential as { kind: string }).kind;
+  const requestTimeoutMs = resolveRequestTimeoutMs(config.requestTimeoutMs);
 
   if (!config.services.controlPlane) {
     throw new GlobiguardConfigError("controlPlane service URL is required.");
@@ -304,7 +322,8 @@ export function createServerClient(
     clientName,
     credential: config.credential,
     environment: config.environment,
-    fetchImpl
+    fetchImpl,
+    requestTimeoutMs
   });
 
   const brain = config.services.brain
@@ -313,7 +332,8 @@ export function createServerClient(
         clientName,
         credential: config.credential,
         environment: config.environment,
-        fetchImpl
+        fetchImpl,
+        requestTimeoutMs
       })
     : undefined;
 
@@ -323,7 +343,8 @@ export function createServerClient(
         clientName,
         credential: config.credential,
         environment: config.environment,
-        fetchImpl
+        fetchImpl,
+        requestTimeoutMs
       })
     : undefined;
 
@@ -333,7 +354,8 @@ export function createServerClient(
         clientName,
         credential: config.credential,
         environment: config.environment,
-        fetchImpl
+        fetchImpl,
+        requestTimeoutMs
       })
     : undefined;
 
@@ -415,6 +437,7 @@ export function createBrowserClient(
   const fetchImpl = getFetch(config.fetch);
   const clientName = config.clientName ?? "@globiguard/sdk";
   const credentialKind = (config.credential as { kind: string }).kind;
+  const requestTimeoutMs = resolveRequestTimeoutMs(config.requestTimeoutMs);
 
   if (!config.services.controlPlane) {
     throw new GlobiguardConfigError("controlPlane service URL is required.");
@@ -454,7 +477,8 @@ export function createBrowserClient(
     clientName,
     credential: config.credential,
     environment: config.environment,
-    fetchImpl
+    fetchImpl,
+    requestTimeoutMs
   });
 
   return {
