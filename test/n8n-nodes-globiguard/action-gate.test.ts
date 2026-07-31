@@ -108,6 +108,23 @@ describe('GlobiGuard Action Gate', () => {
     );
   });
 
+  it('rejects binary property counts that exceed the API contract', async () => {
+    const binary = Object.fromEntries(
+      Array.from({ length: 129 }, (_, index) => [
+        `attachment_${index}`,
+        { data: `storage-${index}`, mimeType: 'application/octet-stream' }
+      ])
+    );
+    const { context, requests } = createContext({
+      input: [{ json: { claimId: 'claim_42' }, binary }]
+    });
+
+    await expect(new GlobiGuard().execute.call(context)).rejects.toThrow(
+      'more than 128 binary properties'
+    );
+    expect(requests).toHaveLength(0);
+  });
+
   it.each([
     ['BLOCK', [0, 0, 1, 0, 0]],
     ['MODIFY', [0, 1, 0, 0, 0]],

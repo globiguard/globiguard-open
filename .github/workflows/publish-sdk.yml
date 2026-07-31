@@ -1,5 +1,9 @@
 name: Publish @globiguard/sdk
 
+permissions:
+  contents: read
+  id-token: write
+
 on:
   push:
     tags:
@@ -24,8 +28,15 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Publish
-        run: pnpm --filter @globiguard/sdk publish --no-git-checks
+      - name: Verify tag and package
+        shell: bash
+        run: |
+          test "sdk-v$(node -p "require('./packages/sdk/package.json').version")" = "$GITHUB_REF_NAME"
+          pnpm --filter @globiguard/sdk typecheck
+          pnpm --filter @globiguard/sdk test
+          pnpm --filter @globiguard/sdk build
+
+      - name: Publish with npm provenance
+        run: pnpm --filter @globiguard/sdk publish --no-git-checks --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

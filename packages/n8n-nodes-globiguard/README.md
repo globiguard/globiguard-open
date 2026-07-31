@@ -7,7 +7,9 @@ GlobiGuard's official community-node package for action governance, sensitive-da
 `GlobiGuard Action Gate` is a policy-routing checkpoint. It hashes the current
 n8n item and routes the decision, but it does not own a later side effect and
 therefore never labels an output `safeToExecute` or presents itself as an AI
-tool. A workflow author can still rewire any routing output.
+execution tool. n8n can expose it to an AI Agent as an advisory policy-check
+tool, but every result remains non-executable and a workflow author can still
+rewire any routing output.
 
 `GlobiGuard Governed HTTP Action` is the package's exact execution boundary.
 It constructs one HTTPS request, hashes the complete request descriptor,

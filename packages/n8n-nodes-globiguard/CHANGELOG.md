@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.1
+
+- Restored truthful AI-tool catalog metadata for the governed HTTP action node.
+- Kept execution fail closed unless the current decision is an exact,
+  obligation-free `ALLOW` for the immutable request fingerprint.
+- Added bounded, metadata-only output summaries and broader regression coverage.
+- Completed the package metadata needed for n8n community-node verification.
+
 ## 2.0.0
 
 - Rebuilt the package on n8n's official `@n8n/node-cli` layout and validation

@@ -10,8 +10,6 @@ import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 import { summarizeN8nItem } from '../../src/payload-summary';
 import { encodePathSegment, globiGuardRequest } from '../../src/transport';
 
-/* eslint-disable @n8n/community-nodes/node-usable-as-tool -- A routing decision is not an execution boundary and must not be exposed as an agent tool. */
-
 const DECISIONS = ['ALLOW', 'MODIFY', 'BLOCK', 'QUEUE'] as const;
 type Decision = (typeof DECISIONS)[number];
 
@@ -51,6 +49,7 @@ export class GlobiGuard implements INodeType {
     subtitle: '={{$parameter["operation"]}}',
     description:
       'Route a proposed action by policy; use a governed executor for an actual side effect',
+    usableAsTool: true,
     defaults: {
       name: 'GlobiGuard Action Gate'
     },
