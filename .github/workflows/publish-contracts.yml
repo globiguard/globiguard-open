@@ -1,4 +1,4 @@
-name: Publish @globiguard/sdk
+name: Publish @globiguard/contracts
 
 permissions:
   contents: read
@@ -7,7 +7,7 @@ permissions:
 on:
   push:
     tags:
-      - 'sdk-v*.*.*'
+      - 'contracts-v*.*.*'
 
 jobs:
   publish:
@@ -28,16 +28,17 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Verify tag and package
+      - name: Verify tag and packed consumer contract
         shell: bash
         run: |
-          test "sdk-v$(node -p "require('./packages/sdk/package.json').version")" = "$GITHUB_REF_NAME"
-          pnpm --filter @globiguard/sdk typecheck
-          pnpm --filter @globiguard/sdk test
+          test "contracts-v$(node -p "require('./packages/contracts/package.json').version")" = "$GITHUB_REF_NAME"
+          pnpm --filter @globiguard/contracts typecheck
+          pnpm --filter @globiguard/contracts test
+          pnpm --filter @globiguard/contracts build
           pnpm --filter @globiguard/sdk build
           node scripts/verify-packed-sdk-consumer.mjs
 
       - name: Publish with npm provenance
-        run: pnpm --filter @globiguard/sdk publish --no-git-checks --access public --provenance
+        run: pnpm --filter @globiguard/contracts publish --no-git-checks --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

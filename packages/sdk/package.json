@@ -1,6 +1,6 @@
 {
   "name": "@globiguard/sdk",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Server-first TypeScript SDK for GlobiGuard control-plane and trusted decision-engine connectivity.",
   "author": "GuideGDM",
   "license": "Apache-2.0",
@@ -36,7 +36,7 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@globiguard/contracts": "^1.0.1"
+    "@globiguard/contracts": "^1.0.2"
   },
   "devDependencies": {
     "vitest": "^2.1.8"

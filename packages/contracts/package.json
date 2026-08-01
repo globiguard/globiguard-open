@@ -1,6 +1,6 @@
 {
   "name": "@globiguard/contracts",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Shared public contracts for GlobiGuard distribution-layer packages.",
   "author": "GuideGDM",
   "license": "Apache-2.0",
