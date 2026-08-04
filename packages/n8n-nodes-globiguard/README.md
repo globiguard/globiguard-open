@@ -101,14 +101,21 @@ Use a stable idempotency key from the business object when the downstream action
 
 ## AI agents and MCP
 
-The Action Gate is intentionally not offered as an n8n AI tool because a policy
-answer cannot enforce the agent's later calls to other tools.
+The Action Gate can be offered to an n8n AI Agent as an advisory policy-check
+tool. Its response remains non-executable: it cannot enforce the agent's later
+calls to other tools, and an `ALLOW` from it must never be treated as authority
+for a separate side effect.
 
 For execution-boundary enforcement:
 
 1. run the GlobiGuard governed MCP gateway in front of the downstream MCP server;
 2. connect n8n's built-in **MCP Client Tool** only to the governed gateway;
 3. do not expose the original downstream MCP server to the same agent.
+
+For a single HTTPS side effect, the Governed HTTP Action may also be exposed as
+the agent tool because that node owns the downstream request and executes only
+the exact, freshly authorized request. Do not expose an equivalent ungoverned
+HTTP tool to the same agent.
 
 The gateway owns the downstream connection and forwards the exact tool arguments only after `ALLOW`. BLOCK, MODIFY, QUEUE, expired decisions, authority failures, and argument drift fail closed.
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Clarified that Action Gate's AI-tool exposure is advisory and non-executable,
+  while Governed HTTP Action and the MCP gateway are execution boundaries.
+
 ## 2.0.1
 
 - Restored truthful AI-tool catalog metadata for the governed HTTP action node.
