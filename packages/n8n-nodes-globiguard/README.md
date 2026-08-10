@@ -155,7 +155,7 @@ pnpm --filter n8n-nodes-globiguard typecheck
 pnpm --filter n8n-nodes-globiguard lint
 pnpm --filter n8n-nodes-globiguard test
 pnpm --filter n8n-nodes-globiguard build
-pnpm --filter n8n-nodes-globiguard pack
+pnpm --filter n8n-nodes-globiguard exec npm pack --pack-destination ./artifacts
 ```
 
 Publishing is performed from GitHub Actions with npm provenance. A release is not ready until the package builds on Node.js 22.22+, passes the official n8n linter, the packed tarball has no runtime dependencies, and the published package passes n8n's community-package scanner.

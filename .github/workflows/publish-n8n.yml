@@ -37,6 +37,9 @@ jobs:
           pnpm --filter n8n-nodes-globiguard lint
           pnpm --filter n8n-nodes-globiguard test
           pnpm --filter n8n-nodes-globiguard build
+          test -f packages/n8n-nodes-globiguard/dist/credentials/GlobiGuardApi.credentials.js
+          git ls-files --error-unmatch packages/n8n-nodes-globiguard/dist/credentials/GlobiGuardApi.credentials.js
+          git ls-files --error-unmatch packages/n8n-nodes-globiguard/dist/nodes/GlobiGuard/GlobiGuard.node.js
 
       - name: Publish with npm provenance
         run: pnpm --filter n8n-nodes-globiguard release

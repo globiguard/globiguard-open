@@ -1,0 +1,72 @@
+{
+    "name": "n8n-nodes-globiguard",
+    "version": "2.0.2",
+    "description": "Fail-closed action governance, sensitive-data detection, and audit evidence for n8n.",
+    "keywords": [
+        "n8n-community-node-package",
+        "governance",
+        "data-loss-prevention",
+        "ai-safety",
+        "compliance"
+    ],
+    "author": {
+        "name": "GuideGDM",
+        "email": "mugishomatgedeon@gmail.com"
+    },
+    "license": "MIT",
+    "homepage": "https://github.com/globiguard/globiguard-open/tree/main/packages/n8n-nodes-globiguard#readme",
+    "files": [
+        "dist",
+        "README.md",
+        "CHANGELOG.md",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/globiguard/globiguard-open.git",
+        "directory": "packages/n8n-nodes-globiguard"
+    },
+    "n8n": {
+        "n8nNodesApiVersion": 1,
+        "strict": true,
+        "credentials": [
+            "dist/credentials/GlobiGuardApi.credentials.js"
+        ],
+        "nodes": [
+            "dist/nodes/GlobiGuard/GlobiGuard.node.js",
+            "dist/nodes/GlobiGuardHttpAction/GlobiGuardHttpAction.node.js",
+            "dist/nodes/GlobiGuardDetect/GlobiGuardDetect.node.js",
+            "dist/nodes/GlobiGuardObserve/GlobiGuardObserve.node.js"
+        ]
+    },
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
+    },
+    "engines": {
+        "node": ">=22.22.0"
+    },
+    "devDependencies": {
+        "@n8n/node-cli": "0.40.3",
+        "eslint": "9.39.4",
+        "n8n-workflow": "2.16.0",
+        "prettier": "3.8.3",
+        "typescript": "5.9.3",
+        "vitest": "2.1.8"
+    },
+    "peerDependencies": {
+        "n8n-workflow": "*"
+    },
+    "scripts": {
+        "build": "n8n-node build",
+        "build:watch": "n8n-node build --watch",
+        "dev": "n8n-node dev",
+        "lint": "n8n-node lint",
+        "lint:fix": "n8n-node lint --fix",
+        "typecheck": "tsc -p tsconfig.json --noEmit",
+        "test": "vitest --root ../.. run test/n8n-nodes-globiguard",
+        "release": "n8n-node release",
+        "prepack": "pnpm run build",
+        "prepublishOnly": "n8n-node prerelease"
+    }
+}

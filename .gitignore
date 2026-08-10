@@ -2,6 +2,11 @@ node_modules/
 **/node_modules/
 dist/
 **/dist/
+# The n8n Creator Portal verifies the compiled credential and node paths
+# declared in packages/n8n-nodes-globiguard/package.json against GitHub.
+# Keep this package's build output versioned so those paths are reviewable.
+!packages/n8n-nodes-globiguard/dist/
+!packages/n8n-nodes-globiguard/dist/**
 coverage/
 **/coverage/
 *.tsbuildinfo
