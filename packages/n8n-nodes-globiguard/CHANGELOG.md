@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+- Clarified that Action Gate's AI-tool exposure is advisory and non-executable,
+  while Governed HTTP Action and the MCP gateway are execution boundaries.
+
+## 2.0.2
+
+- Versioned the compiled node and credential entry points required by the n8n
+  Creator Portal repository pre-check.
+- Added release-time checks that prevent publishing when declared compiled
+  entries are absent from Git.
+
+## 2.0.1
+
+- Restored truthful AI-tool catalog metadata for the governed HTTP action node.
+- Kept execution fail closed unless the current decision is an exact,
+  obligation-free `ALLOW` for the immutable request fingerprint.
+- Added bounded, metadata-only output summaries and broader regression coverage.
+- Completed the package metadata needed for n8n community-node verification.
+
 ## 2.0.0
 
 - Rebuilt the package on n8n's official `@n8n/node-cli` layout and validation

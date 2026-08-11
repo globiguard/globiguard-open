@@ -7,7 +7,9 @@ GlobiGuard's official community-node package for action governance, sensitive-da
 `GlobiGuard Action Gate` is a policy-routing checkpoint. It hashes the current
 n8n item and routes the decision, but it does not own a later side effect and
 therefore never labels an output `safeToExecute` or presents itself as an AI
-tool. A workflow author can still rewire any routing output.
+execution tool. n8n can expose it to an AI Agent as an advisory policy-check
+tool, but every result remains non-executable and a workflow author can still
+rewire any routing output.
 
 `GlobiGuard Governed HTTP Action` is the package's exact execution boundary.
 It constructs one HTTPS request, hashes the complete request descriptor,
@@ -99,14 +101,21 @@ Use a stable idempotency key from the business object when the downstream action
 
 ## AI agents and MCP
 
-The Action Gate is intentionally not offered as an n8n AI tool because a policy
-answer cannot enforce the agent's later calls to other tools.
+The Action Gate can be offered to an n8n AI Agent as an advisory policy-check
+tool. Its response remains non-executable: it cannot enforce the agent's later
+calls to other tools, and an `ALLOW` from it must never be treated as authority
+for a separate side effect.
 
 For execution-boundary enforcement:
 
 1. run the GlobiGuard governed MCP gateway in front of the downstream MCP server;
 2. connect n8n's built-in **MCP Client Tool** only to the governed gateway;
 3. do not expose the original downstream MCP server to the same agent.
+
+For a single HTTPS side effect, the Governed HTTP Action may also be exposed as
+the agent tool because that node owns the downstream request and executes only
+the exact, freshly authorized request. Do not expose an equivalent ungoverned
+HTTP tool to the same agent.
 
 The gateway owns the downstream connection and forwards the exact tool arguments only after `ALLOW`. BLOCK, MODIFY, QUEUE, expired decisions, authority failures, and argument drift fail closed.
 
@@ -146,7 +155,7 @@ pnpm --filter n8n-nodes-globiguard typecheck
 pnpm --filter n8n-nodes-globiguard lint
 pnpm --filter n8n-nodes-globiguard test
 pnpm --filter n8n-nodes-globiguard build
-pnpm --filter n8n-nodes-globiguard pack
+pnpm --filter n8n-nodes-globiguard exec npm pack --pack-destination ./artifacts
 ```
 
 Publishing is performed from GitHub Actions with npm provenance. A release is not ready until the package builds on Node.js 22.22+, passes the official n8n linter, the packed tarball has no runtime dependencies, and the published package passes n8n's community-package scanner.
