@@ -6,6 +6,7 @@ import type {
 
 const MAX_SUMMARY_BYTES = 10 * 1024 * 1024;
 const MAX_BINARY_BYTES = 100 * 1024 * 1024;
+const MAX_BINARY_PROPERTIES = 128;
 const SAFE_FIELD_NAME = /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/;
 
 export interface PayloadSummary {
@@ -55,6 +56,11 @@ export async function summarizeN8nItem(
     left.localeCompare(right)
   );
   if (binaryEntries.length === 0) return jsonSummary;
+  if (binaryEntries.length > MAX_BINARY_PROPERTIES) {
+    throw new Error(
+      `GlobiGuard will not authorize more than ${MAX_BINARY_PROPERTIES} binary properties in one item.`
+    );
+  }
 
   let binaryBytes = 0;
   const binaryDescriptors = await Promise.all(
