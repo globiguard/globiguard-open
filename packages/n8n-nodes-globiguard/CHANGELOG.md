@@ -5,6 +5,13 @@
 - Clarified that Action Gate's AI-tool exposure is advisory and non-executable,
   while Governed HTTP Action and the MCP gateway are execution boundaries.
 
+## 2.0.3
+
+- Published from the corrected default-branch source so n8n Creator Portal can
+  resolve the compiled credential entrypoint back to the public repository.
+- Retained the exact reviewed 2.0.2 runtime behavior; this patch changes release
+  provenance and repository discoverability only.
+
 ## 2.0.2
 
 - Versioned the compiled node and credential entry points required by the n8n
