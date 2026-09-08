@@ -4,6 +4,16 @@
 
 - Clarified that Action Gate's AI-tool exposure is advisory and non-executable,
   while Governed HTTP Action and the MCP gateway are execution boundaries.
+- Added forward-compatible governed Brain provenance to Detect outputs: contract
+  version, trace ID, specialist/artifact evidence, inference status, policy
+  authority, deterministic layers, latency, and a privacy-safe digest.
+- Fail closed when an unavailable or abstained Brain response claims a clean
+  decision; legacy servers without the additive provenance fields remain
+  compatible during rollout.
+- Validate every specialist record and project only the documented metadata
+  fields, preventing unknown upstream values from crossing the n8n boundary.
+- Consume the byte-identical canonical Brain acceptance/rejection fixture set
+  shared with the direct API and Make integration.
 
 ## 2.0.3
 

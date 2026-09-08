@@ -32,6 +32,10 @@ import {
 import { createActionsClient, createActionsReadClient } from "./resources/actions.js";
 import { requestJson, type GlobiguardRequestOptions } from "./fetch.js";
 import { createAuditClient, createAuditReadClient } from "./resources/audit.js";
+import {
+  createDetectionClient,
+  type GlobiguardDetectionClient
+} from "./resources/detection.js";
 import { createInstallsClient } from "./resources/installs.js";
 import { createOrgsClient } from "./resources/orgs.js";
 import { createPoliciesClient, createPoliciesReadClient } from "./resources/policies.js";
@@ -88,6 +92,7 @@ export interface GlobiguardServerClient {
   sidecar?: GlobiguardTransport;
   actions: GlobiguardActionsClient;
   audit: GlobiguardAuditClient;
+  detection: GlobiguardDetectionClient;
   installs: GlobiguardInstallsClient;
   orgs: GlobiguardOrgsClient;
   policies: GlobiguardPoliciesClient;
@@ -405,6 +410,7 @@ export function createServerClient(
 
   const actions = createActionsClient(actionTransport);
   const audit = createAuditClient(controlPlane);
+  const detection = createDetectionClient(controlPlane);
   const queue = createQueueClient(controlPlane);
 
   return {
@@ -417,6 +423,7 @@ export function createServerClient(
     sidecar,
     actions,
     audit,
+    detection,
     installs: createInstallsClient(controlPlane),
     orgs: createOrgsClient(controlPlane),
     policies: createPoliciesClient(controlPlane),

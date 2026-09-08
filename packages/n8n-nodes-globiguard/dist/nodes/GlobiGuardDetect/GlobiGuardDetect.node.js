@@ -4,6 +4,9 @@ exports.GlobiGuardDetect = void 0;
 const n8n_workflow_1 = require("n8n-workflow");
 const transport_1 = require("../../src/transport");
 const DETECTION_DECISIONS = ['ALLOW', 'MODIFY', 'BLOCK', 'QUEUE'];
+const INFERENCE_STATUSES = ['complete', 'degraded', 'abstained', 'unavailable'];
+const CONFIDENCE_BANDS = ['high', 'medium', 'low', 'not_applicable'];
+const SHA256_HEX = /^[a-f0-9]{64}$/;
 class GlobiGuardDetect {
     constructor() {
         this.description = {
@@ -62,7 +65,7 @@ class GlobiGuardDetect {
         };
     }
     async execute() {
-        var _a, _b, _c, _d, _e, _f, _g;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v;
         const inputs = this.getInputData();
         const sensitive = [];
         const clean = [];
@@ -109,6 +112,7 @@ class GlobiGuardDetect {
                 if (!DETECTION_DECISIONS.includes(result.decision)) {
                     throw new n8n_workflow_1.NodeOperationError(this.getNode(), 'GlobiGuard returned an invalid detection decision.', { itemIndex });
                 }
+                validateInferenceMetadata(this, result, itemIndex);
                 const hasSensitiveData = entities.length > 0 || result.decision !== 'ALLOW';
                 if (redactionStrategy !== 'none' &&
                     hasSensitiveData &&
@@ -133,7 +137,15 @@ class GlobiGuardDetect {
                             reasonCodes: (_d = result.reason_codes) !== null && _d !== void 0 ? _d : [],
                             recommendedAction: (_e = result.recommended_action) !== null && _e !== void 0 ? _e : null,
                             fallbackMode: (_f = result.fallback_mode) !== null && _f !== void 0 ? _f : null,
-                            fieldCountByTier: (_g = result.field_count_by_tier) !== null && _g !== void 0 ? _g : {},
+                            brainContractVersion: (_g = result.brain_contract_version) !== null && _g !== void 0 ? _g : null,
+                            traceId: (_h = result.trace_id) !== null && _h !== void 0 ? _h : null,
+                            inferenceStatus: (_k = (_j = result.inference) === null || _j === void 0 ? void 0 : _j.status) !== null && _k !== void 0 ? _k : null,
+                            policyAuthority: (_m = (_l = result.inference) === null || _l === void 0 ? void 0 : _l.policy_authority) !== null && _m !== void 0 ? _m : null,
+                            provenanceDigest: (_p = (_o = result.inference) === null || _o === void 0 ? void 0 : _o.provenance_digest) !== null && _p !== void 0 ? _p : null,
+                            totalLatencyMs: (_r = (_q = result.inference) === null || _q === void 0 ? void 0 : _q.total_latency_ms) !== null && _r !== void 0 ? _r : null,
+                            deterministicLayers: (_t = (_s = result.inference) === null || _s === void 0 ? void 0 : _s.deterministic_layers) !== null && _t !== void 0 ? _t : [],
+                            specialists: projectSpecialists((_u = result.inference) === null || _u === void 0 ? void 0 : _u.specialists),
+                            fieldCountByTier: (_v = result.field_count_by_tier) !== null && _v !== void 0 ? _v : {},
                             entities,
                             redactedText,
                             redactionComplete: redactionStrategy === 'none' ? null : true,
@@ -169,6 +181,77 @@ class GlobiGuardDetect {
     }
 }
 exports.GlobiGuardDetect = GlobiGuardDetect;
+function validateInferenceMetadata(context, result, itemIndex) {
+    const inference = result.inference;
+    if (inference === undefined)
+        return;
+    const validStatus = INFERENCE_STATUSES.includes(inference.status);
+    if (result.brain_contract_version !== '1.0' ||
+        typeof result.trace_id !== 'string' ||
+        result.trace_id.length === 0 ||
+        result.trace_id.length > 128 ||
+        !validStatus ||
+        inference.policy_authority !== 'control_plane' ||
+        typeof inference.route !== 'string' ||
+        inference.route.length === 0 ||
+        !Array.isArray(inference.specialists) ||
+        !Array.isArray(inference.deterministic_layers) ||
+        !SHA256_HEX.test(inference.provenance_digest)) {
+        throw new n8n_workflow_1.NodeOperationError(context.getNode(), 'GlobiGuard returned invalid Brain inference provenance.', { itemIndex });
+    }
+    for (const specialist of inference.specialists) {
+        validateSpecialistInference(context, specialist, itemIndex);
+    }
+    if ((inference.status === 'unavailable' || inference.status === 'abstained') &&
+        (result.decision === 'ALLOW' || result.decision === 'MODIFY')) {
+        throw new n8n_workflow_1.NodeOperationError(context.getNode(), 'GlobiGuard returned a clean decision without usable Brain inference evidence.', { itemIndex });
+    }
+}
+function validateSpecialistInference(context, specialist, itemIndex) {
+    var _a;
+    const validOptionalSha = (value) => value === null ||
+        value === undefined ||
+        (typeof value === 'string' && SHA256_HEX.test(value));
+    if (!specialist ||
+        typeof specialist !== 'object' ||
+        Array.isArray(specialist) ||
+        typeof specialist.role !== 'string' ||
+        specialist.role.length === 0 ||
+        specialist.role.length > 80 ||
+        !INFERENCE_STATUSES.includes(specialist.status) ||
+        (specialist.artifact_id !== null &&
+            specialist.artifact_id !== undefined &&
+            (typeof specialist.artifact_id !== 'string' ||
+                specialist.artifact_id.length === 0 ||
+                specialist.artifact_id.length > 256)) ||
+        !validOptionalSha(specialist.artifact_sha256) ||
+        !validOptionalSha(specialist.ontology_sha256) ||
+        !CONFIDENCE_BANDS.includes(specialist.confidence_band) ||
+        (specialist.latency_ms !== null &&
+            specialist.latency_ms !== undefined &&
+            (typeof specialist.latency_ms !== 'number' ||
+                !Number.isFinite(specialist.latency_ms) ||
+                specialist.latency_ms < 0)) ||
+        !Number.isInteger(specialist.finding_count) ||
+        ((_a = specialist.finding_count) !== null && _a !== void 0 ? _a : -1) < 0) {
+        throw new n8n_workflow_1.NodeOperationError(context.getNode(), 'GlobiGuard returned invalid Brain specialist provenance.', { itemIndex });
+    }
+}
+function projectSpecialists(specialists) {
+    return (specialists !== null && specialists !== void 0 ? specialists : []).map((specialist) => {
+        var _a, _b, _c, _d;
+        return ({
+            role: specialist.role,
+            status: specialist.status,
+            artifact_id: (_a = specialist.artifact_id) !== null && _a !== void 0 ? _a : null,
+            artifact_sha256: (_b = specialist.artifact_sha256) !== null && _b !== void 0 ? _b : null,
+            ontology_sha256: (_c = specialist.ontology_sha256) !== null && _c !== void 0 ? _c : null,
+            confidence_band: specialist.confidence_band,
+            latency_ms: (_d = specialist.latency_ms) !== null && _d !== void 0 ? _d : null,
+            finding_count: specialist.finding_count
+        });
+    });
+}
 function normalizeIndustry(context, value, itemIndex) {
     const normalized = value.trim().toUpperCase();
     if (!/^[A-Z][A-Z0-9_-]{0,63}$/.test(normalized)) {

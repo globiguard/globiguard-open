@@ -147,6 +147,16 @@ fails closed instead of returning partially redacted text.
 If Brain reports a sensitive decision without spans, redaction also fails
 closed; the node never calls unchanged text "fully redacted".
 
+When the server returns the governed Brain contract, Detect also exposes
+`brainContractVersion`, `traceId`, `inferenceStatus`, `policyAuthority`,
+`provenanceDigest`, `deterministicLayers`, `specialists`, and
+`totalLatencyMs`. These identify the inference evidence without including the
+scanned text or detected values. Treat `unavailable` and `abstained` as
+non-executable states; the node routes a contradictory clean decision to its
+fail-closed error output. Specialist records are validated and projected onto
+the documented metadata fields, so unknown upstream properties are not copied
+into workflow output.
+
 ## Development and verification
 
 ```bash

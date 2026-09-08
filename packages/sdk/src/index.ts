@@ -6,6 +6,7 @@ export * from "./ai-intercept.js";
 export * from "./governance.js";
 export * from "./resources/actions.js";
 export * from "./resources/audit.js";
+export * from "./resources/detection.js";
 export * from "./resources/installs.js";
 export * from "./resources/orgs.js";
 export * from "./resources/path-segments.js";

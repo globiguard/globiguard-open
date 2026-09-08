@@ -16,7 +16,30 @@ interface DetectionField extends IDataObject {
   end_pos?: number;
 }
 
+interface SpecialistInference extends IDataObject {
+  role: string;
+  status: string;
+  artifact_id?: string | null;
+  artifact_sha256?: string | null;
+  ontology_sha256?: string | null;
+  confidence_band?: string;
+  latency_ms?: number | null;
+  finding_count?: number;
+}
+
+interface InferenceMetadata extends IDataObject {
+  status: string;
+  policy_authority: string;
+  route: string;
+  specialists: SpecialistInference[];
+  deterministic_layers: string[];
+  total_latency_ms?: number;
+  provenance_digest: string;
+}
+
 interface DetectionResponse extends IDataObject {
+  brain_contract_version?: string;
+  trace_id?: string;
   decision: string;
   decision_band?: string;
   confidence?: number;
@@ -27,9 +50,13 @@ interface DetectionResponse extends IDataObject {
   recommended_action?: string;
   fallback_mode?: string;
   field_count_by_tier?: IDataObject;
+  inference?: InferenceMetadata;
 }
 
 const DETECTION_DECISIONS = ['ALLOW', 'MODIFY', 'BLOCK', 'QUEUE'] as const;
+const INFERENCE_STATUSES = ['complete', 'degraded', 'abstained', 'unavailable'] as const;
+const CONFIDENCE_BANDS = ['high', 'medium', 'low', 'not_applicable'] as const;
+const SHA256_HEX = /^[a-f0-9]{64}$/;
 
 export class GlobiGuardDetect implements INodeType {
   description: INodeTypeDescription = {
@@ -176,6 +203,7 @@ export class GlobiGuardDetect implements INodeType {
             { itemIndex }
           );
         }
+        validateInferenceMetadata(this, result, itemIndex);
         const hasSensitiveData =
           entities.length > 0 || result.decision !== 'ALLOW';
         if (
@@ -214,6 +242,14 @@ export class GlobiGuardDetect implements INodeType {
               reasonCodes: result.reason_codes ?? [],
               recommendedAction: result.recommended_action ?? null,
               fallbackMode: result.fallback_mode ?? null,
+              brainContractVersion: result.brain_contract_version ?? null,
+              traceId: result.trace_id ?? null,
+              inferenceStatus: result.inference?.status ?? null,
+              policyAuthority: result.inference?.policy_authority ?? null,
+              provenanceDigest: result.inference?.provenance_digest ?? null,
+              totalLatencyMs: result.inference?.total_latency_ms ?? null,
+              deterministicLayers: result.inference?.deterministic_layers ?? [],
+              specialists: projectSpecialists(result.inference?.specialists),
               fieldCountByTier: result.field_count_by_tier ?? {},
               entities,
               redactedText,
@@ -250,6 +286,110 @@ export class GlobiGuardDetect implements INodeType {
 
     return [sensitive, clean, errors];
   }
+}
+
+function validateInferenceMetadata(
+  context: IExecuteFunctions,
+  result: DetectionResponse,
+  itemIndex: number
+): void {
+  const inference = result.inference;
+  if (inference === undefined) return;
+  const validStatus = INFERENCE_STATUSES.includes(
+    inference.status as (typeof INFERENCE_STATUSES)[number]
+  );
+  if (
+    result.brain_contract_version !== '1.0' ||
+    typeof result.trace_id !== 'string' ||
+    result.trace_id.length === 0 ||
+    result.trace_id.length > 128 ||
+    !validStatus ||
+    inference.policy_authority !== 'control_plane' ||
+    typeof inference.route !== 'string' ||
+    inference.route.length === 0 ||
+    !Array.isArray(inference.specialists) ||
+    !Array.isArray(inference.deterministic_layers) ||
+    !SHA256_HEX.test(inference.provenance_digest)
+  ) {
+    throw new NodeOperationError(
+      context.getNode(),
+      'GlobiGuard returned invalid Brain inference provenance.',
+      { itemIndex }
+    );
+  }
+  for (const specialist of inference.specialists) {
+    validateSpecialistInference(context, specialist, itemIndex);
+  }
+  if (
+    (inference.status === 'unavailable' || inference.status === 'abstained') &&
+    (result.decision === 'ALLOW' || result.decision === 'MODIFY')
+  ) {
+    throw new NodeOperationError(
+      context.getNode(),
+      'GlobiGuard returned a clean decision without usable Brain inference evidence.',
+      { itemIndex }
+    );
+  }
+}
+
+function validateSpecialistInference(
+  context: IExecuteFunctions,
+  specialist: SpecialistInference,
+  itemIndex: number
+): void {
+  const validOptionalSha = (value: unknown): boolean =>
+    value === null ||
+    value === undefined ||
+    (typeof value === 'string' && SHA256_HEX.test(value));
+  if (
+    !specialist ||
+    typeof specialist !== 'object' ||
+    Array.isArray(specialist) ||
+    typeof specialist.role !== 'string' ||
+    specialist.role.length === 0 ||
+    specialist.role.length > 80 ||
+    !INFERENCE_STATUSES.includes(
+      specialist.status as (typeof INFERENCE_STATUSES)[number]
+    ) ||
+    (specialist.artifact_id !== null &&
+      specialist.artifact_id !== undefined &&
+      (typeof specialist.artifact_id !== 'string' ||
+        specialist.artifact_id.length === 0 ||
+        specialist.artifact_id.length > 256)) ||
+    !validOptionalSha(specialist.artifact_sha256) ||
+    !validOptionalSha(specialist.ontology_sha256) ||
+    !CONFIDENCE_BANDS.includes(
+      specialist.confidence_band as (typeof CONFIDENCE_BANDS)[number]
+    ) ||
+    (specialist.latency_ms !== null &&
+      specialist.latency_ms !== undefined &&
+      (typeof specialist.latency_ms !== 'number' ||
+        !Number.isFinite(specialist.latency_ms) ||
+        specialist.latency_ms < 0)) ||
+    !Number.isInteger(specialist.finding_count) ||
+    (specialist.finding_count ?? -1) < 0
+  ) {
+    throw new NodeOperationError(
+      context.getNode(),
+      'GlobiGuard returned invalid Brain specialist provenance.',
+      { itemIndex }
+    );
+  }
+}
+
+function projectSpecialists(
+  specialists: SpecialistInference[] | undefined
+): SpecialistInference[] {
+  return (specialists ?? []).map((specialist) => ({
+    role: specialist.role,
+    status: specialist.status,
+    artifact_id: specialist.artifact_id ?? null,
+    artifact_sha256: specialist.artifact_sha256 ?? null,
+    ontology_sha256: specialist.ontology_sha256 ?? null,
+    confidence_band: specialist.confidence_band,
+    latency_ms: specialist.latency_ms ?? null,
+    finding_count: specialist.finding_count
+  }));
 }
 
 function normalizeIndustry(

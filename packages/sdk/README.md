@@ -69,15 +69,20 @@ Use `actionGateway: { mode: "sidecar" }` with `services.sidecar`, or `mode: "gat
 
 ## AI intercept
 
-`createAiIntercept` wraps any AI provider call with a GlobiGuard governance checkpoint. Input is authorized before the model is called; output is classified by Brain and authorized if sensitive. Supported providers: OpenAI, Anthropic, Google GenAI, AWS Bedrock, Cohere, Mistral, Ollama, Vercel AI SDK, LangChain JS.
+`createAiIntercept` wraps any AI provider call with two Control Plane checks:
+authenticated sensitive-information evaluation followed by action
+authorization. Input must pass both checks before the model is called; output
+must pass both before it is returned. Supported providers: OpenAI, Anthropic,
+Google GenAI, AWS Bedrock, Cohere, Mistral, Ollama, Vercel AI SDK, LangChain JS.
 
-When a Brain client is configured, text is sent to that explicitly configured
-Brain endpoint for classification. Use a local or customer-controlled Brain
-endpoint when raw content must remain inside the customer data plane. Detector
-results returned to the intercept stay local: action authorization receives
-only the normalized data class, a bounded count, and allowlisted entity-type
-labels. Raw entity text, values, and spans are never copied into control-plane
-metadata.
+Detection uses the supported `POST /v1/detection/evaluate` contract through
+`serverClient.detection`. The interceptor validates Brain provenance and policy
+authority, then copies only sensitivity classes, allowlisted field-type labels,
+bounded counts, trace/provenance identifiers, and specialist status into the
+action request. It never copies raw detected values, tokens, spans, or unknown
+detector fields into action-authority metadata. Direct `serverClient.brain`
+transport access is an optional advanced/internal integration surface and is
+not used by the interceptor.
 
 ```ts
 import { createServerClient, createAiIntercept } from "@globiguard/sdk";
@@ -86,7 +91,7 @@ import OpenAI from "openai";
 const serverClient = createServerClient({ ... });
 
 const intercept = createAiIntercept(
-  { actions: serverClient.actions, brain: serverClient.brain },
+  { actions: serverClient.actions, detection: serverClient.detection },
   { mode: "scan_both" }   // scan_input | scan_output | scan_both
 );
 
@@ -127,9 +132,10 @@ const result = await governed.invoke("Draft a contract...");
 const governed = intercept.generic(myProviderFn, { extractInput: (params) => params.prompt });
 ```
 
-The AI wrapper releases neither the provider call nor a sensitive output on
-`BLOCK`, `QUEUE`, `MODIFY`, an invalid expiry, or unresolved obligations.
-`onBlock` is a notification hook; returning from it never creates fallthrough.
+The AI wrapper releases neither the provider call nor its output on detection
+or action `BLOCK`, `QUEUE`, `MODIFY`, unusable/invalid inference provenance, an
+invalid expiry, or unresolved obligations. `onBlock` is a notification hook;
+returning from it never creates fallthrough.
 
 SDK HTTP requests have a 10-second default deadline. Set `requestTimeoutMs` on
 the client or `timeoutMs`/`signal` on an individual transport request.
@@ -154,13 +160,13 @@ const ctx = new GovernanceContext(gg.governance, {
 });
 
 // Scan input, record the hop
-const inputResp = await gg.brain!.evaluate({ text: userMessage, industry: "HEALTHCARE", sessionId: "sess_abc", orgId: "org_123" });
+const inputResp = await gg.detection.evaluate({ text: userMessage, industry: "HEALTHCARE", sessionId: "sess_abc" });
 await ctx.recordInput(inputResp);
 
 // ... call LLM ...
 
 // Scan output, record the hop (throws GovernanceBlockedError on BLOCK)
-const outputResp = await gg.brain!.evaluate({ text: llmOutput, industry: "HEALTHCARE", sessionId: "sess_abc", orgId: "org_123" });
+const outputResp = await gg.detection.evaluate({ text: llmOutput, industry: "HEALTHCARE", sessionId: "sess_abc" });
 await ctx.recordOutput(outputResp);
 
 console.log(ctx.traceId);         // "gtrace_..."

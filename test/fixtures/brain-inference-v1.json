@@ -1,0 +1,136 @@
+{
+  "fixture_contract": "globiguard.brain-inference.shared-fixtures.v1",
+  "source_contract": "2026-08-brain-inference-v1",
+  "cases": [
+    {
+      "id": "complete-clean-allow",
+      "expect": "accept",
+      "response": {
+        "brain_contract_version": "1.0",
+        "trace_id": "fixture-complete-allow",
+        "decision": "ALLOW",
+        "masked_fields": [],
+        "blocked_fields": [],
+        "inference": {
+          "status": "complete",
+          "policy_authority": "control_plane",
+          "route": "sensitive_information",
+          "specialists": [
+            {
+              "role": "sensitive_contextual_span",
+              "status": "complete",
+              "artifact_id": "brain-detection/fixture",
+              "artifact_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+              "ontology_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+              "confidence_band": "not_applicable",
+              "latency_ms": 3.1,
+              "finding_count": 0
+            }
+          ],
+          "deterministic_layers": ["regex"],
+          "total_latency_ms": 4.2,
+          "provenance_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        }
+      }
+    },
+    {
+      "id": "degraded-sensitive-modify",
+      "expect": "accept",
+      "response": {
+        "brain_contract_version": "1.0",
+        "trace_id": "fixture-degraded-modify",
+        "decision": "MODIFY",
+        "masked_fields": [
+          {
+            "field_type": "EMAIL",
+            "token": "[[EMAIL_1]]",
+            "confidence": 0.99,
+            "method": "REGEX",
+            "sensitivity_tier": "RESTRICTED"
+          }
+        ],
+        "blocked_fields": [],
+        "inference": {
+          "status": "degraded",
+          "policy_authority": "control_plane",
+          "route": "sensitive_information",
+          "specialists": [
+            {
+              "role": "sensitive_contextual_span",
+              "status": "unavailable",
+              "artifact_id": "brain-detection/fixture",
+              "artifact_sha256": null,
+              "ontology_sha256": null,
+              "confidence_band": "not_applicable",
+              "latency_ms": null,
+              "finding_count": 0
+            }
+          ],
+          "deterministic_layers": ["regex"],
+          "total_latency_ms": 1.5,
+          "provenance_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
+      }
+    },
+    {
+      "id": "unavailable-block",
+      "expect": "accept",
+      "response": {
+        "brain_contract_version": "1.0",
+        "trace_id": "fixture-unavailable-block",
+        "decision": "BLOCK",
+        "masked_fields": [],
+        "blocked_fields": [],
+        "inference": {
+          "status": "unavailable",
+          "policy_authority": "control_plane",
+          "route": "sensitive_information",
+          "specialists": [],
+          "deterministic_layers": [],
+          "total_latency_ms": 1,
+          "provenance_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      }
+    },
+    {
+      "id": "unavailable-clean-allow",
+      "expect": "reject",
+      "response": {
+        "brain_contract_version": "1.0",
+        "trace_id": "fixture-invalid-unavailable-allow",
+        "decision": "ALLOW",
+        "masked_fields": [],
+        "blocked_fields": [],
+        "inference": {
+          "status": "unavailable",
+          "policy_authority": "control_plane",
+          "route": "sensitive_information",
+          "specialists": [],
+          "deterministic_layers": [],
+          "total_latency_ms": 1,
+          "provenance_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "id": "wrong-policy-authority",
+      "expect": "reject",
+      "response": {
+        "brain_contract_version": "1.0",
+        "trace_id": "fixture-invalid-policy-authority",
+        "decision": "BLOCK",
+        "masked_fields": [],
+        "blocked_fields": [],
+        "inference": {
+          "status": "complete",
+          "policy_authority": "brain",
+          "route": "sensitive_information",
+          "specialists": [],
+          "deterministic_layers": ["regex"],
+          "total_latency_ms": 1,
+          "provenance_digest": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      }
+    }
+  ]
+}

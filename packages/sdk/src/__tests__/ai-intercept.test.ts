@@ -2,15 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import type {
   GlobiguardActionAuthorizationResponse,
-  GlobiguardActionsClient,
+  GlobiguardActionsClient
 } from "@globiguard/contracts";
 
-import type { GlobiguardTransport } from "../client.js";
 import { createAiIntercept } from "../ai-intercept.js";
+import type {
+  GlobiguardDetectionClient,
+  GlobiguardDetectionEvaluateResponse
+} from "../resources/detection.js";
 
 function decision(
   value: GlobiguardActionAuthorizationResponse["decision"],
-  extras: Partial<GlobiguardActionAuthorizationResponse> = {},
+  extras: Partial<GlobiguardActionAuthorizationResponse> = {}
 ): GlobiguardActionAuthorizationResponse {
   return {
     contractVersion: "2026-04-action-beta",
@@ -28,7 +31,36 @@ function decision(
     approvalState: value === "QUEUE" ? "PENDING" : "NOT_REQUIRED",
     evidenceRefs: [],
     expiresAt: new Date(Date.now() + 60_000).toISOString(),
-    ...extras,
+    ...extras
+  };
+}
+
+function detection(
+  value: GlobiguardDetectionEvaluateResponse["decision"] = "ALLOW",
+  fields: GlobiguardDetectionEvaluateResponse["masked_fields"] = []
+): GlobiguardDetectionEvaluateResponse {
+  return {
+    brain_contract_version: "1.0",
+    trace_id: `trace-${value.toLowerCase()}`,
+    decision: value,
+    masked_fields: fields,
+    blocked_fields: [],
+    inference: {
+      status: "complete",
+      policy_authority: "control_plane",
+      route: "sensitive_information",
+      specialists: [
+        {
+          role: "sensitive_contextual_span",
+          status: "complete",
+          confidence_band: "high",
+          finding_count: fields.length
+        }
+      ],
+      deterministic_layers: ["regex"],
+      total_latency_ms: 2,
+      provenance_digest: "c".repeat(64)
+    }
   };
 }
 
@@ -36,116 +68,144 @@ function actions(authorize: ReturnType<typeof vi.fn>): GlobiguardActionsClient {
   return { authorize } as unknown as GlobiguardActionsClient;
 }
 
+function detector(evaluate: ReturnType<typeof vi.fn>): GlobiguardDetectionClient {
+  return { evaluate } as unknown as GlobiguardDetectionClient;
+}
+
 describe("AI intercept authority boundary", () => {
   it.each(["BLOCK", "QUEUE", "MODIFY"] as const)(
-    "does not call a provider after a %s input decision",
+    "does not call a provider after a %s input detection decision",
     async (outcome) => {
       const call = vi.fn(async () => "provider response");
+      const authorize = vi.fn(async () => decision("ALLOW"));
       const onBlock = vi.fn();
       const intercept = createAiIntercept(
-        { actions: actions(vi.fn(async () => decision(outcome))) },
-        { mode: "scan_input", onBlock },
+        {
+          actions: actions(authorize),
+          detection: detector(vi.fn(async () => detection(outcome)))
+        },
+        { mode: "scan_input", onBlock }
       );
 
       await expect(intercept.wrap("sensitive input", call)).rejects.toThrow(
-        "AI input was not released",
+        "AI input was not released"
       );
       expect(call).not.toHaveBeenCalled();
+      expect(authorize).not.toHaveBeenCalled();
       expect(onBlock).toHaveBeenCalledTimes(outcome === "BLOCK" ? 1 : 0);
-    },
+    }
   );
 
   it.each(["BLOCK", "QUEUE", "MODIFY"] as const)(
-    "does not release a sensitive provider response after a %s output decision",
+    "does not release a provider response after a %s action decision",
     async (outcome) => {
       const authorize = vi
         .fn()
         .mockResolvedValueOnce(decision("ALLOW"))
         .mockResolvedValueOnce(decision(outcome));
-      const classify = vi
+      const evaluate = vi
         .fn()
-        .mockResolvedValueOnce({ dataClass: "PUBLIC", detectedEntities: [] })
-        .mockResolvedValueOnce({
-          dataClass: "PHI",
-          detectedEntities: [{ type: "PHI" }],
-        });
+        .mockResolvedValueOnce(detection("ALLOW"))
+        .mockResolvedValueOnce(
+          detection("ALLOW", [
+            {
+              field_type: "PHI",
+              confidence: 0.99,
+              method: "GLINER",
+              sensitivity_tier: "RESTRICTED"
+            }
+          ])
+        );
       const call = vi.fn(async () => ({ content: "patient diagnosis" }));
       const onBlock = vi.fn();
       const intercept = createAiIntercept(
-        {
-          actions: actions(authorize),
-          brain: { request: classify },
-        },
-        { mode: "scan_both", onBlock },
+        { actions: actions(authorize), detection: detector(evaluate) },
+        { mode: "scan_both", onBlock }
       );
 
       await expect(intercept.wrap("draft", call)).rejects.toThrow(
-        "AI output was not released",
+        "AI output was not released"
       );
       expect(call).toHaveBeenCalledOnce();
       expect(onBlock).toHaveBeenCalledTimes(outcome === "BLOCK" ? 1 : 0);
-    },
+    }
   );
 
   it("does not release an ALLOW with unresolved obligations", async () => {
     const intercept = createAiIntercept(
       {
         actions: actions(
-          vi.fn(async () =>
-            decision("ALLOW", { obligations: ["mask recipient"] }),
-          ),
+          vi.fn(async () => decision("ALLOW", { obligations: ["mask recipient"] }))
         ),
+        detection: detector(vi.fn(async () => detection("ALLOW")))
       },
-      { mode: "scan_input" },
+      { mode: "scan_input" }
     );
     const call = vi.fn(async () => "provider response");
 
     await expect(intercept.wrap("draft", call)).rejects.toMatchObject({
-      kind: "STEP_UP_REQUIRED",
+      kind: "STEP_UP_REQUIRED"
     });
     expect(call).not.toHaveBeenCalled();
   });
 
-  it("never forwards raw detector entities into action-authority metadata", async () => {
+  it("forwards only privacy-minimized detection evidence to action authority", async () => {
     const authorize = vi.fn(async (_request: unknown) => decision("ALLOW"));
-    const classify = vi.fn(async (_path: string) => ({
-      dataClass: "PII",
-      detectedEntities: [
+    const evaluate = vi.fn(async () => ({
+      ...detection("ALLOW", [
         {
-          type: "EMAIL_ADDRESS",
-          text: "patient@example.com",
-          value: "patient@example.com",
-          start: 0,
-          end: 19,
+          field_type: "EMAIL_ADDRESS",
+          token: "[[EMAIL_1]]",
+          confidence: 0.99,
+          method: "REGEX",
+          sensitivity_tier: "RESTRICTED",
+          value: "patient@example.com"
         },
-        { label: "API_KEY", value: "sk_live_do_not_export" },
-        { type: "patient@example.com", value: "raw type injection" },
-      ],
+        {
+          field_type: "patient@example.com",
+          token: "sk_live_do_not_export",
+          confidence: 0.8,
+          method: "GLINER",
+          sensitivity_tier: "BLOCKED"
+        }
+      ]),
+      unexpected_payload: "must-not-cross-authority-boundary"
     }));
     const intercept = createAiIntercept(
-      {
-        actions: actions(authorize),
-        brain: {
-          request: classify as unknown as GlobiguardTransport["request"],
-        },
-      },
-      { mode: "scan_input" },
+      { actions: actions(authorize), detection: detector(evaluate) },
+      { mode: "scan_input" }
     );
 
-    await intercept.wrap("patient@example.com", vi.fn(async () => "ok"));
+    const result = await intercept.wrap(
+      "patient@example.com",
+      vi.fn(async () => "ok")
+    );
 
     const serialized = JSON.stringify(authorize.mock.calls[0]?.[0]);
     expect(serialized).not.toContain("patient@example.com");
     expect(serialized).not.toContain("sk_live_do_not_export");
+    expect(serialized).not.toContain("must-not-cross-authority-boundary");
     expect(authorize.mock.calls[0]?.[0]).toMatchObject({
       context: {
-        dataClasses: ["PII"],
-        fieldsInvolved: ["API_KEY", "EMAIL_ADDRESS"],
+        dataClasses: ["RESTRICTED", "SECRET"],
+        fieldsInvolved: ["EMAIL_ADDRESS"],
         metadata: {
-          detectionSource: "brain",
-          detectedEntityCount: 3,
-        },
-      },
+          detectionSource: "control_plane",
+          brainContractVersion: "1.0",
+          inferenceStatus: "complete",
+          detectedFieldCount: 2
+        }
+      }
     });
+    expect(JSON.stringify(result.inputEntities)).not.toContain("patient@example.com");
+    expect(JSON.stringify(result.inputEntities)).not.toContain("sk_live_do_not_export");
+  });
+
+  it("fails construction without the authenticated detection client", () => {
+    expect(() =>
+      createAiIntercept({ actions: actions(vi.fn()) } as never, {
+        mode: "scan_input"
+      })
+    ).toThrow("Control Plane detection client");
   });
 });

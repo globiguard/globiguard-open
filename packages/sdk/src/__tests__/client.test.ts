@@ -1004,6 +1004,55 @@ describe("@globiguard/sdk", () => {
     ]);
   });
 
+  it("evaluates detection through the authenticated Control Plane contract", async () => {
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      expect(String(input)).toBe("https://control.example.com/v1/detection/evaluate");
+      expect(init?.method).toBe("POST");
+      expect(JSON.parse(String(init?.body))).toEqual({
+        text: "customer@example.com",
+        industry: "FINANCE"
+      });
+      const headers = new Headers(init?.headers);
+      expect(headers.get("x-globiguard-secret-key")).toBe("sk_test_123");
+
+      return createJsonResponse({
+        brain_contract_version: "1.0",
+        trace_id: "trace-sdk-detection",
+        decision: "ALLOW",
+        masked_fields: [],
+        blocked_fields: [],
+        inference: {
+          status: "complete",
+          policy_authority: "control_plane",
+          route: "sensitive_information",
+          specialists: [],
+          deterministic_layers: ["regex"],
+          total_latency_ms: 1,
+          provenance_digest: "c".repeat(64)
+        }
+      });
+    });
+
+    const client = createServerClient({
+      environment: "sandbox",
+      credential: {
+        kind: "secret",
+        projectId: "proj_123",
+        token: "sk_test_123",
+        environment: "sandbox"
+      },
+      services: { controlPlane: "https://control.example.com" },
+      fetch: fetchImpl
+    });
+
+    await expect(
+      client.detection.evaluate({
+        text: "customer@example.com",
+        industry: "FINANCE"
+      })
+    ).resolves.toMatchObject({ decision: "ALLOW", trace_id: "trace-sdk-detection" });
+  });
+
   it("sends secret-backed requests to a trusted brain endpoint from the server client", async () => {
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       expect(String(input)).toBe("https://brain.example.com/v1/jobs");

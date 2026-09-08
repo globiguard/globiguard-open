@@ -1,15 +1,21 @@
-import {
-  GLOBIGUARD_DATA_CLASSES,
-  type GlobiguardActionsClient,
-  type GlobiguardDataClass,
-} from "@globiguard/contracts";
-import type { GlobiguardTransport } from "./client.js";
-import { GlobiguardAuthorityError } from "./errors.js";
+import type { GlobiguardActionsClient } from "@globiguard/contracts";
+import { GlobiguardAuthorityError, GlobiguardConfigError } from "./errors.js";
 import { assertExecutableAuthorization } from "./governed-actions.js";
+import {
+  assertDetectionAllowsContinuation,
+  projectDetectionActionEvidence,
+  projectSafeDetectedFields,
+  validateDetectionResponse,
+  type GlobiguardDetectionClient
+} from "./resources/detection.js";
 
 export type AiInterceptMode = "scan_input" | "scan_output" | "scan_both";
 
-const SENSITIVE_CLASSES = new Set(["RESTRICTED", "SECRET", "PII", "PHI", "PCI"]);
+const AI_INTERCEPT_MODES = new Set<AiInterceptMode>([
+  "scan_input",
+  "scan_output",
+  "scan_both"
+]);
 
 export interface AiInterceptOptions {
   mode?: AiInterceptMode;
@@ -55,7 +61,7 @@ export interface GlobiguardAiIntercept {
 
 export interface AiInterceptDeps {
   actions: GlobiguardActionsClient;
-  brain?: GlobiguardTransport;
+  detection: GlobiguardDetectionClient;
 }
 
 export function createAiIntercept(
@@ -65,6 +71,20 @@ export function createAiIntercept(
   const mode = options.mode ?? "scan_both";
   const actionType = options.actionType ?? "ai.request";
   const destination = options.destination ?? "ai_model";
+  if (!AI_INTERCEPT_MODES.has(mode)) {
+    throw new GlobiguardConfigError("mode must be scan_input, scan_output, or scan_both.");
+  }
+  if (!actionType.trim()) {
+    throw new GlobiguardConfigError("actionType must be a non-empty string.");
+  }
+  if (!destination.trim()) {
+    throw new GlobiguardConfigError("destination must be a non-empty string.");
+  }
+  if (!deps.detection || typeof deps.detection.evaluate !== "function") {
+    throw new GlobiguardConfigError(
+      "AI interception requires the authenticated Control Plane detection client."
+    );
+  }
 
   const self: GlobiguardAiIntercept = {
     async wrap<T>(
@@ -78,67 +98,51 @@ export function createAiIntercept(
       let outputEntities: unknown[] | null = null;
 
       if (mode === "scan_input" || mode === "scan_both") {
-        if (deps.brain) {
-          const classification = await deps.brain.request<Record<string, unknown>>(
-            "/v1/brain/classify",
-            { method: "POST", body: { text: inputText } }
-          );
-          inputEntities = (classification.detectedEntities as unknown[] | undefined) ?? null;
-          const detectedClass = normalizeDataClass(classification.dataClass);
-          const inputDetectionSummary = summarizeDetectedEntities(inputEntities);
-          inputDecision = (await deps.actions.authorize({
-            context: {
-              actionType,
-              destination: { type: "custom", name: destination },
-              dataClasses: detectedClass ? [detectedClass] : [],
-              fieldsInvolved: inputDetectionSummary.types,
-              metadata: {
-                detectionSource: "brain",
-                detectedEntityCount: inputDetectionSummary.count,
-              }
-            }
-          })) as unknown as Record<string, unknown>;
-        } else {
-          inputDecision = (await deps.actions.authorize({
-            context: {
-              actionType,
-              destination: { type: "custom", name: destination },
-              dataClasses: []
-            }
-          })) as unknown as Record<string, unknown>;
-        }
+        const detection = validateDetectionResponse(
+          await deps.detection.evaluate({ text: inputText })
+        );
+        inputEntities = projectSafeDetectedFields(detection);
+        assertDetectionAllowsContinuation(detection, "input", options.onBlock);
+        const evidence = projectDetectionActionEvidence(detection);
+        inputDecision = (await deps.actions.authorize({
+          context: {
+            actionType,
+            destination: { type: "custom", name: destination },
+            dataClasses: evidence.dataClasses,
+            fieldsInvolved: evidence.fieldTypes,
+            metadata: evidence.metadata
+          }
+        })) as unknown as Record<string, unknown>;
         assertAiDecisionExecutable(inputDecision, "input", options.onBlock);
       }
 
       const response = await callFn(callOptions);
 
-      if ((mode === "scan_output" || mode === "scan_both") && deps.brain) {
+      if (mode === "scan_output" || mode === "scan_both") {
         const outputText = extractResponseText(response);
-        if (outputText) {
-          const outClassification = await deps.brain.request<Record<string, unknown>>(
-            "/v1/brain/classify",
-            { method: "POST", body: { text: outputText } }
-          );
-          outputEntities =
-            (outClassification.detectedEntities as unknown[] | undefined) ?? null;
-          const outClass = normalizeDataClass(outClassification.dataClass) ?? "PUBLIC";
-          if (SENSITIVE_CLASSES.has(outClass)) {
-            const outputDetectionSummary = summarizeDetectedEntities(outputEntities);
-            outputDecision = (await deps.actions.authorize({
-              context: {
-                actionType: "ai.response",
-                destination: { type: "custom", name: destination },
-                dataClasses: [outClass],
-                fieldsInvolved: outputDetectionSummary.types,
-                metadata: {
-                  detectionSource: "brain",
-                  detectedEntityCount: outputDetectionSummary.count,
-                }
-              }
-            })) as unknown as Record<string, unknown>;
-            assertAiDecisionExecutable(outputDecision, "output", options.onBlock);
-          }
+        if (typeof outputText !== "string" || outputText.length === 0) {
+          throw new GlobiguardAuthorityError({
+            kind: "CONTROL_PLANE_UNAVAILABLE",
+            message: "The AI response could not be inspected; it was not released.",
+            safeDetails: { reason: "OUTPUT_NOT_INSPECTABLE" }
+          });
         }
+        const detection = validateDetectionResponse(
+          await deps.detection.evaluate({ text: outputText })
+        );
+        outputEntities = projectSafeDetectedFields(detection);
+        assertDetectionAllowsContinuation(detection, "output", options.onBlock);
+        const evidence = projectDetectionActionEvidence(detection);
+        outputDecision = (await deps.actions.authorize({
+          context: {
+            actionType: "ai.response",
+            destination: { type: "custom", name: destination },
+            dataClasses: evidence.dataClasses,
+            fieldsInvolved: evidence.fieldTypes,
+            metadata: evidence.metadata
+          }
+        })) as unknown as Record<string, unknown>;
+        assertAiDecisionExecutable(outputDecision, "output", options.onBlock);
       }
 
       return { response, inputDecision, outputDecision, inputEntities, outputEntities };
@@ -374,36 +378,6 @@ export function createAiIntercept(
   };
 
   return self;
-}
-
-function normalizeDataClass(value: unknown): GlobiguardDataClass | undefined {
-  return typeof value === "string" &&
-    (GLOBIGUARD_DATA_CLASSES as readonly string[]).includes(value)
-    ? (value as GlobiguardDataClass)
-    : undefined;
-}
-
-function summarizeDetectedEntities(entities: unknown[] | null): {
-  count: number;
-  types: string[];
-} {
-  const safeTypes = new Set<string>();
-  for (const entity of entities ?? []) {
-    if (!entity || typeof entity !== "object" || Array.isArray(entity)) continue;
-    const record = entity as Record<string, unknown>;
-    const candidate = record.type ?? record.label ?? record.entityType;
-    if (
-      typeof candidate === "string" &&
-      /^[A-Z][A-Z0-9_]{0,63}$/.test(candidate)
-    ) {
-      safeTypes.add(candidate);
-    }
-    if (safeTypes.size >= 128) break;
-  }
-  return {
-    count: Math.min(entities?.length ?? 0, Number.MAX_SAFE_INTEGER),
-    types: [...safeTypes].sort(),
-  };
 }
 
 function assertAiDecisionExecutable(

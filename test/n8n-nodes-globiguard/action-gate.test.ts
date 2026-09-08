@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import type {
   IExecuteFunctions,
@@ -520,6 +523,54 @@ describe('GlobiGuard Governed HTTP Action', () => {
 });
 
 describe('GlobiGuard Detect', () => {
+  it('uses the byte-identical canonical Brain provenance fixtures', async () => {
+    const fixtureBytes = readFileSync(
+      resolve(__dirname, '../fixtures/brain-inference-v1.json')
+    );
+    expect(createHash('sha256').update(fixtureBytes).digest('hex')).toBe(
+      'e247589e1ea3457481ba98f58d87d102171c642899273e2a9044880ac721f0a9'
+    );
+    const fixture = JSON.parse(fixtureBytes.toString('utf8')) as {
+      cases: Array<{
+        id: string;
+        expect: 'accept' | 'reject';
+        response: Record<string, unknown>;
+      }>;
+    };
+
+    const acceptedAllow = fixture.cases.find(
+      (item) => item.id === 'complete-clean-allow'
+    );
+    const unavailableBlock = fixture.cases.find(
+      (item) => item.id === 'unavailable-block'
+    );
+    expect(acceptedAllow?.expect).toBe('accept');
+    expect(unavailableBlock?.expect).toBe('accept');
+
+    for (const item of [acceptedAllow, unavailableBlock]) {
+      const { context } = createContext({
+        input: [{ json: { text: 'contract fixture' } }],
+        parameters: { text: 'contract fixture' },
+        responses: [item?.response]
+      });
+      const outputs = await new GlobiGuardDetect().execute.call(context);
+      expect(outputs[2]).toHaveLength(0);
+      expect(outputs.flat()).toHaveLength(1);
+    }
+
+    for (const item of fixture.cases.filter(({ expect }) => expect === 'reject')) {
+      const { context } = createContext({
+        input: [{ json: { text: 'contract fixture' } }],
+        parameters: { text: 'contract fixture' },
+        continueOnFail: true,
+        responses: [item.response]
+      });
+      const outputs = await new GlobiGuardDetect().execute.call(context);
+      expect(outputs.map((items) => items.length)).toEqual([0, 0, 1]);
+      expect(JSON.stringify(outputs)).not.toContain('contract fixture');
+    }
+  });
+
   it('routes transport failures to error, never clean, when Continue On Fail is set', async () => {
     const { context } = createContext({
       input: [{ json: { text: 'secret' } }],
@@ -626,6 +677,89 @@ describe('GlobiGuard Detect', () => {
       redactionComplete: false,
       safeToProceed: false
     });
+  });
+
+  it('surfaces governed Brain provenance without exposing source text', async () => {
+    const { context } = createContext({
+      input: [{ json: { text: 'clean synthetic text' } }],
+      parameters: { text: 'clean synthetic text' },
+      responses: [
+        {
+          brain_contract_version: '1.0',
+          trace_id: 'a'.repeat(32),
+          decision: 'ALLOW',
+          masked_fields: [],
+          blocked_fields: [],
+          inference: {
+            status: 'complete',
+            policy_authority: 'control_plane',
+            route: 'sensitive_information',
+            specialists: [
+              {
+                role: 'sensitive_contextual_span',
+                status: 'complete',
+                artifact_id: 'brain-detection/default',
+                artifact_sha256: 'b'.repeat(64),
+              confidence_band: 'not_applicable',
+              finding_count: 0,
+              raw_customer_value: 'must-not-cross-n8n'
+              }
+            ],
+            deterministic_layers: ['regex'],
+            total_latency_ms: 4.2,
+            provenance_digest: 'c'.repeat(64)
+          }
+        }
+      ]
+    });
+
+    const outputs = await new GlobiGuardDetect().execute.call(context);
+
+    expect(outputs.map((items) => items.length)).toEqual([0, 1, 0]);
+    expect(outputs[1][0]?.json.globiguard).toMatchObject({
+      safeToProceed: true,
+      brainContractVersion: '1.0',
+      inferenceStatus: 'complete',
+      policyAuthority: 'control_plane',
+      provenanceDigest: 'c'.repeat(64),
+      deterministicLayers: ['regex']
+    });
+    expect(JSON.stringify(outputs)).not.toContain('must-not-cross-n8n');
+  });
+
+  it('fails closed when unavailable Brain inference claims a clean decision', async () => {
+    const { context } = createContext({
+      input: [{ json: { text: 'synthetic text' } }],
+      parameters: { text: 'synthetic text' },
+      continueOnFail: true,
+      responses: [
+        {
+          brain_contract_version: '1.0',
+          trace_id: 'a'.repeat(32),
+          decision: 'ALLOW',
+          masked_fields: [],
+          blocked_fields: [],
+          inference: {
+            status: 'unavailable',
+            policy_authority: 'control_plane',
+            route: 'sensitive_information',
+            specialists: [],
+            deterministic_layers: [],
+            total_latency_ms: 1,
+            provenance_digest: 'c'.repeat(64)
+          }
+        }
+      ]
+    });
+
+    const outputs = await new GlobiGuardDetect().execute.call(context);
+
+    expect(outputs.map((items) => items.length)).toEqual([0, 0, 1]);
+    expect(outputs[2][0]?.json.globiguard).toMatchObject({
+      scanned: false,
+      safeToProceed: false
+    });
+    expect(JSON.stringify(outputs)).not.toContain('synthetic text');
   });
 });
 
