@@ -69,8 +69,58 @@ describe('GlobiGuard Action Gate', () => {
       (
         (requestBody.context as Record<string, unknown>)
           .payloadSummary as Record<string, unknown>
-      ).sha256
+    ).sha256
     ).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('consumes the shared action-governance fixture contract for every decision', async () => {
+    const fixtureBytes = readFileSync(
+      resolve(__dirname, '../fixtures/action-governance-v1.json')
+    );
+    expect(createHash('sha256').update(fixtureBytes).digest('hex')).toBe(
+      '7fde92cc2fa2843f5ca9020c8c4d9afd6fcc36adf2efc3d193250621285b40ac'
+    );
+    const fixture = JSON.parse(fixtureBytes.toString('utf8')) as {
+      fixture_contract: string;
+      source_contract: string;
+      cases: Array<{
+        id: string;
+        harnessTenant: 'A' | 'B';
+        request: {
+          context: {
+            actionType: string;
+            destination: { type: string; name: string };
+            dataClasses: string[];
+          };
+        };
+        response: Record<string, unknown> & {
+          decision: 'ALLOW' | 'MODIFY' | 'BLOCK' | 'QUEUE';
+        };
+      }>;
+    };
+    expect(fixture.fixture_contract).toBe(
+      'globiguard.action-governance.shared-fixtures.v1'
+    );
+    expect(fixture.source_contract).toBe('2026-04-action-beta');
+    const outputIndex = { ALLOW: 0, MODIFY: 1, BLOCK: 2, QUEUE: 3 } as const;
+
+    for (const item of fixture.cases) {
+      const { context } = createContext({
+        parameters: {
+          actionType: item.request.context.actionType,
+          destinationType: item.request.context.destination.type,
+          destinationName: item.request.context.destination.name,
+          dataClasses: item.request.context.dataClasses
+        },
+        responses: [item.response]
+      });
+      const outputs = await new GlobiGuard().execute.call(context);
+      expect(outputs[outputIndex[item.response.decision]]).toHaveLength(1);
+      expect(outputs.flat().find((entry) => entry.json.globiguard)?.json.globiguard).toMatchObject({
+        routingDecision: item.response.decision,
+        executionBoundary: false
+      });
+    }
   });
 
   it('binds binary content into authorization while preserving the paired binary item', async () => {

@@ -1,0 +1,97 @@
+{
+  "fixture_contract": "globiguard.action-governance.shared-fixtures.v1",
+  "source_contract": "2026-04-action-beta",
+  "description": "Synthetic, payload-free decisions used to compare direct API, SDK, n8n and Make routing.",
+  "cases": [
+    {
+      "id": "allow-clean-email",
+      "harnessTenant": "A",
+      "request": {
+        "context": {
+          "actionType": "email.send",
+          "destination": { "type": "email", "name": "customer-mail" },
+          "dataClasses": ["PUBLIC"]
+        },
+        "dryRun": true
+      },
+      "response": {
+        "contractVersion": "2026-04-action-beta",
+        "authorizationId": "fixture-allow-clean-email",
+        "decision": "ALLOW",
+        "approvalState": "NOT_REQUIRED",
+        "queueEntryId": null,
+        "evidenceRefs": [],
+        "executable": true,
+        "nextAction": "EXECUTE_EXACT_ACTION_ONCE",
+        "expiresAt": "2099-01-01T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "modify-sensitive-export",
+      "harnessTenant": "A",
+      "request": {
+        "context": {
+          "actionType": "data.export",
+          "destination": { "type": "storage", "name": "internal-vault" },
+          "dataClasses": ["PII"]
+        },
+        "dryRun": true
+      },
+      "response": {
+        "contractVersion": "2026-04-action-beta",
+        "authorizationId": "fixture-modify-sensitive-export",
+        "decision": "MODIFY",
+        "approvalState": "NOT_REQUIRED",
+        "queueEntryId": null,
+        "evidenceRefs": [],
+        "executable": false,
+        "nextAction": "APPLY_MODIFICATIONS_AND_REAUTHORIZE",
+        "modifications": { "redaction": "required" }
+      }
+    },
+    {
+      "id": "queue-financial-transfer",
+      "harnessTenant": "B",
+      "request": {
+        "context": {
+          "actionType": "bank.transfer",
+          "destination": { "type": "custom", "name": "bank-clearing" },
+          "dataClasses": ["CONFIDENTIAL"]
+        },
+        "dryRun": true
+      },
+      "response": {
+        "contractVersion": "2026-04-action-beta",
+        "authorizationId": "fixture-queue-financial-transfer",
+        "decision": "QUEUE",
+        "approvalState": "PENDING",
+        "queueEntryId": "fixture-queue-financial-transfer-entry",
+        "evidenceRefs": [],
+        "executable": false,
+        "nextAction": "WAIT_FOR_APPROVAL"
+      }
+    },
+    {
+      "id": "block-secret-external-webhook",
+      "harnessTenant": "A",
+      "request": {
+        "context": {
+          "actionType": "block_secret_webhook",
+          "destination": { "type": "webhook", "name": "external-hook" },
+          "dataClasses": ["SECRET"]
+        },
+        "dryRun": true
+      },
+      "response": {
+        "contractVersion": "2026-04-action-beta",
+        "authorizationId": "fixture-block-secret-external-webhook",
+        "decision": "BLOCK",
+        "approvalState": "NOT_REQUIRED",
+        "queueEntryId": null,
+        "evidenceRefs": [],
+        "executable": false,
+        "nextAction": "STOP"
+      }
+    }
+  ]
+}
